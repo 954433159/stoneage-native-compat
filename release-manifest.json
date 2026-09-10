@@ -1,0 +1,654 @@
+{
+  "format": 2,
+  "source_commit": "0da9e1fa40ae2250bbb5317736c63e0f504068d6",
+  "gameplay_baseline_commit": "9e188f9",
+  "hash_basis": "Git index blob bytes, normalized by .gitattributes; excludes this manifest",
+  "file_count": 160,
+  "files": [
+    {
+      "path": ".gitattributes",
+      "sha256": "36500da4ddb7eb7f1fc185ca3ae641bf765913506815a55d518298f807e54705"
+    },
+    {
+      "path": ".github/workflows/public-source.yml",
+      "sha256": "d4a3061bc1a87f842bdf84dc3b86d752ed11f9cf0aee0685cbe5168892b2f8cb"
+    },
+    {
+      "path": ".gitignore",
+      "sha256": "346adacbf97f4480f8c92c2591057a5ff6acb05b35a585f77c335c2651103fe8"
+    },
+    {
+      "path": "LICENSE",
+      "sha256": "ed7c446e9c2cae48765f42c2d5fc9da7f6e41a5363f3e0d7b037a09b8cf16422"
+    },
+    {
+      "path": "README.md",
+      "sha256": "d0e8541b185dc91078960013d464f15200c731e8aea32fd759294fc7d63a3f51"
+    },
+    {
+      "path": "THIRD_PARTY.md",
+      "sha256": "02f0e047d661b0d6936665d204966b78237f92d1f513f74f8e5fabe09ca340d2"
+    },
+    {
+      "path": "account_service.py",
+      "sha256": "0e46fec9cecf71880b4ba0b4fd24a77176e0874cab1948551de780952bf4fb8f"
+    },
+    {
+      "path": "docs/RELEASE_VALIDATION.md",
+      "sha256": "3b689a5190bfeb69ac4279670d7404badc5cef71dd49c2840d4180ccae4322ed"
+    },
+    {
+      "path": "evidence/attributes-ordinary-item-fields.txt",
+      "sha256": "b1a2dc9f3e8bc0d4b563e3f0710284a937f3e7713cecd89e247613de5e516421"
+    },
+    {
+      "path": "evidence/external-pets-20260910/growth-catalog.json",
+      "sha256": "d44e74388febb8e5d464a1009c31d745d3677c371519815ddcdd85e1eea98c36"
+    },
+    {
+      "path": "evidence/external-pets-20260910/growth-observed.json",
+      "sha256": "dc4a7e7e01380df8e734d5e2f18cd835a71c487c455c7169ff3a9b49d24b8eb9"
+    },
+    {
+      "path": "evidence/external-pets-20260910/received-growth.frames",
+      "sha256": "57ffcda73704f5d5022a3940d5f08cb6dcde0d3c91d689d655b9704aa09e09a7"
+    },
+    {
+      "path": "evidence/ride-models-20260911/external-riding-catalog.json",
+      "sha256": "2725261a145aaaf5b8b3bfd03b4f5cc9ccc7995e0932396942cf8bb61f118927"
+    },
+    {
+      "path": "local-game.ps1",
+      "sha256": "e2f7de6613b812eb3993b9716d08f73ac8dac63a0bd20bea1c310bc3ae245aea"
+    },
+    {
+      "path": "native/CMakeLists.txt",
+      "sha256": "0e3d7b15df6d0dc59828e52d70059c02c499b32b4241f888ffbc27de140f3592"
+    },
+    {
+      "path": "native/app_attributes.c",
+      "sha256": "a173345c27da0ffb91db53d41dc90d691ce794437560d7e6b213c94c72eadab4"
+    },
+    {
+      "path": "native/app_attributes.h",
+      "sha256": "17e51795ddb808b4b49ef895d18dd948427507fd6cdbe8946665e936b375f60d"
+    },
+    {
+      "path": "native/app_control.c",
+      "sha256": "594808bf329fe2e5902959305234e3c2ca994ea608d0086cfa22cf5b3f9669ec"
+    },
+    {
+      "path": "native/app_features.c",
+      "sha256": "6c36ac8565c1b85160701348e63b419e1fabe09a654f80f305d623936a5a55c2"
+    },
+    {
+      "path": "native/app_mail.c",
+      "sha256": "65ae18e3674ff67fa4a35f58a4818f560b934eb6c2627e0a248186201413f42e"
+    },
+    {
+      "path": "native/app_market.c",
+      "sha256": "ba97871a1530e0f52c8b6f886f701954e37040e0ffd5209685ed2736e7e8d9af"
+    },
+    {
+      "path": "native/app_role.c",
+      "sha256": "bdf06142f430ca54a3d5c4c0b4e03a857a7515de26b1a6c38643adbe6b8b93c5"
+    },
+    {
+      "path": "native/app_storage.c",
+      "sha256": "92f139fc179b8628877c4c192f3076f88a07d8588dab5b0d997ef2158703e9b3"
+    },
+    {
+      "path": "native/client-activity-levels.lua",
+      "sha256": "e7ee3906b8ba2894d0dcfd797c769c4b7a8b7b106d02c7b4951c6a08f6b59850"
+    },
+    {
+      "path": "native/client-pet-growth.lua",
+      "sha256": "f3483f5aa25b3705e8c263fd772ab455c3d2bcd811b62cd47199991896dedf0a"
+    },
+    {
+      "path": "native/client-ride-models.lua",
+      "sha256": "db124a3b8a8ed5d1a0133adb43bcdea41e627b0a12cc3c5b64248513f5ede2de"
+    },
+    {
+      "path": "native/client-storage-entry.lua",
+      "sha256": "b98d662308710ac75b2a3aa3dd67623683333a8580553518e400f6c8078d4128"
+    },
+    {
+      "path": "native/client-storage-menu.lua",
+      "sha256": "d81b57526727970fb20af2a9bb605b8d82728e433d1ced0ac2064b6b52981b7b"
+    },
+    {
+      "path": "native/client-title-compat.lua",
+      "sha256": "82bd8e3f9946c823368a02490ff704142f1c067249d62cf0447f199164dbf78f"
+    },
+    {
+      "path": "native/client-title-names.json",
+      "sha256": "d40f2c5150752f2709dce60bae2a34764ce1136e7ce38d933650242b45a3703e"
+    },
+    {
+      "path": "native/client-title-text.lua",
+      "sha256": "98ed9f48f38fc17a7bfd30250a5cf42b00f84316efa7c72a794f67083ba48efc"
+    },
+    {
+      "path": "native/external-pet-service.lua",
+      "sha256": "236329a2f9d7e92b89a0c4c91a0976acfb8808e66d379f4a1f5f3909164c1dc7"
+    },
+    {
+      "path": "native/external-pet-skills.json",
+      "sha256": "83e7f36b498fb0c5e08571780d767d29715ad3408da9464e608f61dcdc6828b7"
+    },
+    {
+      "path": "native/external-pet-species.json",
+      "sha256": "fd295d90312b0b9daf295579ac5eaf53dd2d66bbf3156d3e1e43e07ed132dd23"
+    },
+    {
+      "path": "native/include/app_features.h",
+      "sha256": "794017a3b846c7940d457f8cf469e8ce7c618a29424701aa2ad8bb267da2151a"
+    },
+    {
+      "path": "native/include/app_mail.h",
+      "sha256": "57cc67dca95b7ccd272ad908733aadabcfa1cd9919a1804f1062e645346f4d89"
+    },
+    {
+      "path": "native/include/app_market.h",
+      "sha256": "895b9c3e4dff62d2f2b20ca7f9d5da892b1842b35fb14ee62fcbc37cc39848db"
+    },
+    {
+      "path": "native/include/app_pet_skill_options.h",
+      "sha256": "f20ac3c6023847c516ee46e495001a72d511f851b3a1f2fcf64e9eb1808b9be9"
+    },
+    {
+      "path": "native/include/app_pet_skill_wire.h",
+      "sha256": "b7713f69d2e151d25e4c89c44f74325e07fcb404581b34d1077d3ab4174e52ae"
+    },
+    {
+      "path": "native/include/app_role.h",
+      "sha256": "513b1bcc88ce078af7da1dbc81b10d71ecc43513604857421f503e7e2e6b832b"
+    },
+    {
+      "path": "native/include/app_storage.h",
+      "sha256": "d32ad07e11bcd292ead0bab4a3f34ea8acf499894bba32e1f2e25410da665478"
+    },
+    {
+      "path": "native/include/mysql/mysql.h",
+      "sha256": "d3bd54e632b84e7d8b83661892e120048f127870169d516ce281b141ea681b9a"
+    },
+    {
+      "path": "native/include/wire_charset.h",
+      "sha256": "92532db87bb54b533ff08df71ade99ce98f25000789380dd4599cd34edf9bf3c"
+    },
+    {
+      "path": "native/lua/app_dungeons.lua",
+      "sha256": "3a38a5d839ab2a3af5cfa4e0c4a82b1dd80dacf1ed349c3875ca6bc9d0886f44"
+    },
+    {
+      "path": "native/lua/app_events.lua",
+      "sha256": "a3cd6f27d2bfb8af7d5cf5d41f7ba8ba6c38f7a995eadd79007fd0fcbcb72ea5"
+    },
+    {
+      "path": "native/lua/app_level140_pill.lua",
+      "sha256": "a5d3fbf6c19efc7d5c90521af0ab4dc8b84a84b725181ff25c282ed1ad463091"
+    },
+    {
+      "path": "native/lua/app_ride_models.lua",
+      "sha256": "130d9cd37542953e7dbfeacba00d60ee57cc4dba3bb76b9be3b9c1fe03858643"
+    },
+    {
+      "path": "native/migrations/001_local_dungeons.sql",
+      "sha256": "4ade04546fc9737cb3d11425313f270b63ccdf1e0e7eec5ea38db06aa47e4383"
+    },
+    {
+      "path": "native/patches.json",
+      "sha256": "7eed9ddbe751a4f9f561aefad823c683672fca02ffac905ab995b36fb427c03a"
+    },
+    {
+      "path": "native/reference-pet-collector.lua",
+      "sha256": "c9c8561c997807b1b7f36456e2e5e8328a21554626dc0b00288de8cb4e1fde13"
+    },
+    {
+      "path": "native/reference-pet-ranking-collector.lua",
+      "sha256": "ae6ca83002470d6fcd2d5e088062cc8c07ead32443421f9e4dfb57cb1b55b8b4"
+    },
+    {
+      "path": "native/resource-patches.json",
+      "sha256": "4168a3461932fbe42efe25fac4ab2bc3ccd725c8fb6d5cedfc01d19b37ff69a8"
+    },
+    {
+      "path": "native/wire_charset.c",
+      "sha256": "864ae9e01a6b609f957a030cbb07b82970d082c309b5fe1b8f08340c05fea6ca"
+    },
+    {
+      "path": "release-input-lock.json",
+      "sha256": "96a0521a956c2b4c99c80eb79b28b088b7f2a7940d3974a177eaee8aa90be407"
+    },
+    {
+      "path": "requirements.txt",
+      "sha256": "0dcd6042f7da9f72cff53f86d67e50881983b8ea32b654b5dceca16851d17e56"
+    },
+    {
+      "path": "start-local.cmd",
+      "sha256": "ebd331e1385ac3752116a5f6538c74b3fab495c669a2d63f624eccd33b1dddc4"
+    },
+    {
+      "path": "stop-local.cmd",
+      "sha256": "957d9e91b980f32326d60226d6c32c93a26e7b55dcf8e889fd70ba5f4c7023c8"
+    },
+    {
+      "path": "tests/activity_rewards.lua",
+      "sha256": "b6eae2c31996cfe7fe939a3797fd667dbae504fc58b7b360b1038aec9bd06649"
+    },
+    {
+      "path": "tests/app_control.c",
+      "sha256": "3ccbf1b17f6fb7f9aa4211fe200414e36131660abbfc67ef48381954a64c9c5e"
+    },
+    {
+      "path": "tests/app_mail.c",
+      "sha256": "ae0b05658a472c5abd95bd85dd1392f5510e4842e25eaf393cf0d4f0e9bdbd46"
+    },
+    {
+      "path": "tests/app_role.c",
+      "sha256": "0825a956a4e1a420d1d530a494bd7bfc7288ab53976da7082135450283ed1179"
+    },
+    {
+      "path": "tests/app_storage.c",
+      "sha256": "b1fbd12fdd98b584a95be7966e7305b1825a177ad237c12b122204c84ae8e9e1"
+    },
+    {
+      "path": "tests/attributes_inventory.c",
+      "sha256": "2d79ebef58ffa3e7233d3b7170ef7ca05f1696458466b52fcc8d1ca75ba9c071"
+    },
+    {
+      "path": "tests/attributes_item_fields.c",
+      "sha256": "368624cac2ee77476a63b43dd9f99cc5ccad9a693f1fa4da6ac4614c00b9863d"
+    },
+    {
+      "path": "tests/attributes_menu.c",
+      "sha256": "831dac5911b18baa8ae2a0cdd1d311296de5c0a9af207639faa8803edabb5666"
+    },
+    {
+      "path": "tests/attributes_menu.lua",
+      "sha256": "3915b7302ab91f971454fa950f2e672eef89c2af6749d0e2d91742d30f21f579"
+    },
+    {
+      "path": "tests/attributes_ordinary.lua",
+      "sha256": "8aff009b118091cbacf6aa2962cfec36eb6385064487bcf9e6c5646364f3b3f4"
+    },
+    {
+      "path": "tests/attributes_packets.py",
+      "sha256": "38ffcd00845b20a5aa0c6bbbf86f1cc506c31165988b39c704fdf467d4ea6548"
+    },
+    {
+      "path": "tests/battle_fields.c",
+      "sha256": "ed83df2144d1ed359c0178b2039e5c2ca43aebcdf3248d94bd6d9372ff80d578"
+    },
+    {
+      "path": "tests/capture_init.lua",
+      "sha256": "4f82bc62443a3e44b41c592da242dd1f48ded176c1fea699b796ca7b42938417"
+    },
+    {
+      "path": "tests/char_fields.c",
+      "sha256": "4109f88b015f6a0857995daf01d3500f60274d77d01aff85cb062b730bfc339a"
+    },
+    {
+      "path": "tests/chat_packet.c",
+      "sha256": "f844ddc8801a2199411f7e7dd3d82d1ade8227b1909410436ffba6119fcef779"
+    },
+    {
+      "path": "tests/client_pet_effects.lua",
+      "sha256": "4788e4b24ad5bc83a5c041647e8faf31f22b8b0e7a64d2045864414670cee446"
+    },
+    {
+      "path": "tests/client_pet_growth.lua",
+      "sha256": "ed26a192eaea358d5538d2dd3a4178e9099c3418495b2de77cf1ad15b12a6db4"
+    },
+    {
+      "path": "tests/client_ride_models.lua",
+      "sha256": "c25c4ebae4a435e5a064784090df13ac40ba959f98a101768612e54fc2ce3b51"
+    },
+    {
+      "path": "tests/client_storage_entry.lua",
+      "sha256": "403bbc3bc3f90701310faada39be2fb4be7393b2832c2e49a1cc90fe57b7b83b"
+    },
+    {
+      "path": "tests/client_title_resource_recovery.py",
+      "sha256": "44dbaad756b82e2a6e5d1c0768f23873e18a6ec0dfbb22c3b6fe4e50608e0074"
+    },
+    {
+      "path": "tests/client_titles.lua",
+      "sha256": "b8d3d587cc183db8af1c0721e6ed29520cc0772f692c346e083887117685d896"
+    },
+    {
+      "path": "tests/encounter_menu.lua",
+      "sha256": "172f74af5e27e38ed6f8285a32bf9a7fd0980f234c8fcc3e9b47c15ba7b2c290"
+    },
+    {
+      "path": "tests/extended_checks_runner.py",
+      "sha256": "19de5a93bca6916a6cc577cdd537c338f4eb991c7075a6295f32153543cfe842"
+    },
+    {
+      "path": "tests/external_pet_service.lua",
+      "sha256": "341c1da86cf18c29497e2670d8831a11af5a9ad3daec33ccd8867a5937b244ec"
+    },
+    {
+      "path": "tests/external_pet_species.py",
+      "sha256": "4e9f62fc3ef775a8666814ec83e9c02e76c0bb6d7d2af9fa8e5c4e1318de954f"
+    },
+    {
+      "path": "tests/inventory_fields.c",
+      "sha256": "9afadbad024faaaef3aae67c43d66f2293f1f383a24723248b9a98ece50f1db9"
+    },
+    {
+      "path": "tests/level140_pill.lua",
+      "sha256": "217cc05c948ae00ca0d03301ca679bfe209c5976f105bbdb59babbd2e6528757"
+    },
+    {
+      "path": "tests/log_login.c",
+      "sha256": "7c10302e5214cbf0503778bf5e3be75f4274f76362e97c3939cfab3f82c0a027"
+    },
+    {
+      "path": "tests/login_platform.lua",
+      "sha256": "840b0d6ba6cf131d40f3676b90ae9604c367338f1e7b5dde476776f95703978a"
+    },
+    {
+      "path": "tests/lua_compat.lua",
+      "sha256": "4d4f14fcd4307b3068faa2a7f43f0ed6f13a68fbb61929937aabd0ffada3790f"
+    },
+    {
+      "path": "tests/newplayer_window.lua",
+      "sha256": "fd56f06b8b729a4db372fe0cf86ea1c3f67043d0ea9e2407101595510e0ad3c4"
+    },
+    {
+      "path": "tests/npc_personal_storage.lua",
+      "sha256": "6b018f026a5e36d1d771cad6f4da6f9ecdb01eceb22819357c635cd1fe796e2d"
+    },
+    {
+      "path": "tests/pet_effect_state.lua",
+      "sha256": "d17414b321724f31361fe32db88e83152f5e2005dbe2c28409e9adc63bab080a"
+    },
+    {
+      "path": "tests/pet_growth.lua",
+      "sha256": "d4a8e881927e06c4985eccab6f06ea193d9c7bcc63c759db553bceb5e215d4af"
+    },
+    {
+      "path": "tests/pet_skill_profiles.py",
+      "sha256": "70d75cd76eb135a45f3c7d0e94de1da2c0457daa7801ebde3d8797d460096f31"
+    },
+    {
+      "path": "tests/pet_skill_wire.py",
+      "sha256": "e650e69f24c9544b510ff6ac40f18f13102cea6151da2773b245c8d662fdc227"
+    },
+    {
+      "path": "tests/pet_state.c",
+      "sha256": "5f615428ff17fd1698c54bb2830dc40baf003d361d77d21deac0e806f587061b"
+    },
+    {
+      "path": "tests/quick_party_menu.lua",
+      "sha256": "053439d021ead4eb62b0931a1a0428c1f2f7e5bd6fe697c3780d7f81cc5cbfe5"
+    },
+    {
+      "path": "tests/reference_pet_collector.lua",
+      "sha256": "c99cffac1e4a47203e68a0765656cb01ee9ad796d8d304ee2cefbf0dfeab94e2"
+    },
+    {
+      "path": "tests/reference_pet_observations.py",
+      "sha256": "410a3d622d6ba13b1a10f453e4148de0dda4f2c12ab9e50ffaf033496bdc894b"
+    },
+    {
+      "path": "tests/reference_pet_ranking_collector.lua",
+      "sha256": "f610d0dcdc52f9c22fb3a51e082b30f862660198f661dde397341329d9e3934e"
+    },
+    {
+      "path": "tests/resource_patch_recovery.py",
+      "sha256": "398ffce21bdfe38ed4f09ded920decacc074c6181d20935cb712bee6aeebd542"
+    },
+    {
+      "path": "tests/ride_models.lua",
+      "sha256": "9f51edf8380a21ed02f8b8ed2c68960f09dd79061fb918c3fd23dfcadac0a07d"
+    },
+    {
+      "path": "tests/service_market.c",
+      "sha256": "41a7a652d102faa32797aaeb501bd961162867cb7b414254454227e79c4c2b53"
+    },
+    {
+      "path": "tests/service_market_client.lua",
+      "sha256": "e75ba5e15eddbc329d89f3f2a411923377164ece06998156615cd24669ca9f7f"
+    },
+    {
+      "path": "tests/service_menus.lua",
+      "sha256": "b1f816c55d5b2dfd29cae06ff39805b0d4e4e1a5a033452a780c5f6440c4f36d"
+    },
+    {
+      "path": "tests/storage_database.c",
+      "sha256": "fd36c3b944f74006ee53b38d8f7564c22eb8964e284117c3846e6cd7268b42e9"
+    },
+    {
+      "path": "tests/task_menu.lua",
+      "sha256": "1cfab0d25a90f87fec6dc976e49157a33e4461ca614dd7e778462fd59ad39414"
+    },
+    {
+      "path": "tests/task_progress.py",
+      "sha256": "1811c1470256dafef61eea3095edd14dd619f265da3203a48b72ac4b87884b6d"
+    },
+    {
+      "path": "tests/team_chat.c",
+      "sha256": "ab8327f50816bcb69a7113149224bb57a9c060e2346ae5e32935a4c7c3e8de45"
+    },
+    {
+      "path": "tests/teleport_menu.lua",
+      "sha256": "c6624079ec895759d19e5cb1bfd38494ad42ddb35d3a96ede7a2dedde8d5c862"
+    },
+    {
+      "path": "tests/test_accounts.py",
+      "sha256": "92492603d11de98d05219746a49fa741d358d991c78bfdeeb5126143b6d61301"
+    },
+    {
+      "path": "tests/test_backup_instance.py",
+      "sha256": "bc03ab0da87f731e59cd0941f59703a97bfc0a31994e7e3ca4c820cd8892c2c7"
+    },
+    {
+      "path": "tests/test_client_tasks.py",
+      "sha256": "8614d0b6006733045fc180838dc6269b7f27b7b25f41d81da2049dd0546079cf"
+    },
+    {
+      "path": "tests/test_created_pet_object.py",
+      "sha256": "a944973c98611d518fefa92d6e313a24e35d5ee8077fb5dc466b8086b2e553bf"
+    },
+    {
+      "path": "tests/test_dungeon_native_bridge.py",
+      "sha256": "1e3e180c59369a39928133c5ba4afb0a344812e43a02e81cc4600f775630e53e"
+    },
+    {
+      "path": "tests/test_family_creation.py",
+      "sha256": "8cee5f69a196b92beedaa81d945017de1258f3c11eabeccff1d730f3ef4f4395"
+    },
+    {
+      "path": "tests/test_family_list.py",
+      "sha256": "b83532113ed98ef03021dec151bf5f1fd842a9fb0e29bf6eabab8020621bf602"
+    },
+    {
+      "path": "tests/test_family_metadata.py",
+      "sha256": "e983d8677ce32841c969c715d562949846761d45159da19bf3016ccb2ccd06d3"
+    },
+    {
+      "path": "tests/test_gmsv_shutdown.py",
+      "sha256": "eb0a0a82f4b5fb3c99695c4cf098b510f43bdd23666c845df44b5d7aac311e22"
+    },
+    {
+      "path": "tests/test_inventory_pages.py",
+      "sha256": "0a9ebeba42d9b1e123f43729fd91bb4f82475beda70aa0def438084d400ba8b7"
+    },
+    {
+      "path": "tests/test_loaded_pet_object.py",
+      "sha256": "619162df6ecfd32b44b39acd7076289e27d362c5d80d71f6a479ceaef440ea64"
+    },
+    {
+      "path": "tests/test_migrated_paths.py",
+      "sha256": "9d0984318b00591566c52547401e2201abac11badf3f8c6ce90a4108b8fcb80d"
+    },
+    {
+      "path": "tests/test_native_greeting.py",
+      "sha256": "a408a92dd6b9f3850f04ae979baf8d229a79a67e0be324bb8ea11ebb7a6f5b06"
+    },
+    {
+      "path": "tests/test_npc_arg_path.py",
+      "sha256": "81d6eb2f8518ec245f2946098797e1566b26ab718abacd8b0556ec601d409057"
+    },
+    {
+      "path": "tests/test_pet_zero_fields.py",
+      "sha256": "6652bd6b772dab9e592e35e784f59f458ee855228b404420ab5a950210b3c0c7"
+    },
+    {
+      "path": "tests/test_release_tools.py",
+      "sha256": "35b318ca91e7d86ced6ee7acc7d26c3a73db08abe6506a4823b11e55f4942592"
+    },
+    {
+      "path": "tests/test_runtime_stop.py",
+      "sha256": "fcb4453f61babcc921709d38b2eacfadde6040cc24928a224ff56f13cdb4ae59"
+    },
+    {
+      "path": "tests/test_saac_save_buffers.py",
+      "sha256": "58cdee7231562fc4c70d8c700d2c6387a5cff43c46fb337a3e51a0257c34a221"
+    },
+    {
+      "path": "tests/test_saac_shutdown.py",
+      "sha256": "73b4a659765b69b8abe28e4cbe93d1731122c08ceeb8ba27485cfd6f2658ac1e"
+    },
+    {
+      "path": "tests/test_status_initialization.py",
+      "sha256": "deebe60fbf5c867ea281bdc10b7c141f3c96a021c167db7e2342cd50cb08d06e"
+    },
+    {
+      "path": "tests/test_trade_item_payload.py",
+      "sha256": "6ef63a09e2ad8fbcfe1e4cb3138c026ff06fa4ca41d4d6992c4553a56d13d0c9"
+    },
+    {
+      "path": "tests/test_trade_pet_payload.py",
+      "sha256": "a98de73d4aa98ea01b11886af0fd93771319d3711a088e7faeb3953ad46e0991"
+    },
+    {
+      "path": "tests/warp_optional.lua",
+      "sha256": "3012a892a4776b4c47ff528426c1d16436af0202227a6e28ffbee7f991d735f4"
+    },
+    {
+      "path": "tests/wire_text.c",
+      "sha256": "9df68d8323c01d248ffb84c84bcf61e37810eee4c0de6c389db2040a88c15754"
+    },
+    {
+      "path": "tools/apply_client_tasks.py",
+      "sha256": "60c7728658ef0aba2ffeee1da8b5300b67ddea8ba9544f9502e8b4727852a7a8"
+    },
+    {
+      "path": "tools/apply_resource_patches.py",
+      "sha256": "132e2bacc633aae8fad05c8ed3eadd583a902f99186e163755358081e4da8fc6"
+    },
+    {
+      "path": "tools/audit_quest_content.py",
+      "sha256": "d8812b608d4d2152d4f1c641b5be7d68dc160449822227899e0cd235c0ad60e7"
+    },
+    {
+      "path": "tools/backup_instance.py",
+      "sha256": "835f1b22c35c2f1ea9a55f5ba47a227e5be2c4fcf9e7c529ac2940f637ac06c3"
+    },
+    {
+      "path": "tools/bootstrap_release.py",
+      "sha256": "d4925b6be5084db94d725e58b13b545dc33f01e5c2faff4f33d2043c4c2384bc"
+    },
+    {
+      "path": "tools/build_client_lua_reference.py",
+      "sha256": "38f1c974bc4bc0596d285fefb7af3b9bfdf13ed9dd52531c6cb2e8077d5430bc"
+    },
+    {
+      "path": "tools/client_graphics_codec.c",
+      "sha256": "169251bff7fc3d3884d2c8c8351d5f6cc518b2af7e88f4590f2cb380f701a70e"
+    },
+    {
+      "path": "tools/client_lua_reference.c",
+      "sha256": "2ebafec4427f49b6b8b83d29876d7b68abd2954412ee6e5728e4f93d9117e50b"
+    },
+    {
+      "path": "tools/import_reference_pet_observations.py",
+      "sha256": "fd84b9745454c47194b17f7477ac6aeb390241b4c983c610b64b2b369a37a2b4"
+    },
+    {
+      "path": "tools/inspect_client_lua.py",
+      "sha256": "7771c69d90e49558265e23190710ec3c74295b51c57d2d45f4b302f36f579233"
+    },
+    {
+      "path": "tools/inspect_client_xy.py",
+      "sha256": "4ccad7faed24e33e975c811ec46526e8be1fcdac9a2b940cda2018a29d490645"
+    },
+    {
+      "path": "tools/prepare_activities.py",
+      "sha256": "98999ccb414be2eea5e697dbf234572f33c557727b5428bccdd244272958b4cf"
+    },
+    {
+      "path": "tools/prepare_client.py",
+      "sha256": "da97ea1540d9549b6e0bbb2e3e0bad370ec6ae89e8d455263a8d2820ca48d896"
+    },
+    {
+      "path": "tools/prepare_client_tasks.py",
+      "sha256": "b7ee79a85aaae6e996d34ed01e566d0a6b2ffdd9e4f8788a608442c069cdddaa"
+    },
+    {
+      "path": "tools/prepare_client_titles.py",
+      "sha256": "5e23cf1ee8b95182d63e2f6b3d4281dff7bedece6b9817d4abd61a3228b1049b"
+    },
+    {
+      "path": "tools/prepare_external_pets.py",
+      "sha256": "86dcc5578f078f7d43a4b12969d3c6ed39513398a6d3eb5e4a2292f8cccd4c5c"
+    },
+    {
+      "path": "tools/prepare_level140_pill.py",
+      "sha256": "58be061a26676b207f032af07e92af0e8fc40c4d1c8a064e215deb53846a55a5"
+    },
+    {
+      "path": "tools/prepare_reference_pet_collector.py",
+      "sha256": "6a9a86b06ceeb668883891ed4409d2b0535d4d9c1f16e1a8da33786dda2cc0ff"
+    },
+    {
+      "path": "tools/prepare_ride_models.py",
+      "sha256": "95fa20227d0689b1d35d3a76f79548cae29cf340e82553328b38cf9984768ccc"
+    },
+    {
+      "path": "tools/prepare_runtime.py",
+      "sha256": "55152f8728ed907506992a3544df83aa646da2d5cb73c2e9d70f1801eaddb048"
+    },
+    {
+      "path": "tools/prepare_sources.py",
+      "sha256": "3d69d89eafb7c2a057f242b83a4c7593c4163442fa3667eda23f729553a76c2d"
+    },
+    {
+      "path": "tools/project_paths.py",
+      "sha256": "baf16cee7948cce198cea6406d6103a325290e9129a6b2551aad934efaed22a0"
+    },
+    {
+      "path": "tools/run_extended_checks.py",
+      "sha256": "fbffee80ca1a7a16c0d6002cba3b68d74cdfa5f62a93fecff3f6ca8f8128613d"
+    },
+    {
+      "path": "tools/run_feature_database_checks.py",
+      "sha256": "1cd059c3c58a0b7b5739d40af6d340241ec319c0b1972e8331e1a793526fdf6b"
+    },
+    {
+      "path": "tools/run_native_checks.py",
+      "sha256": "b308223ae34360eb3ceff4522b6158950ef00b00c9197f13353a43ab5b15b4a2"
+    },
+    {
+      "path": "tools/runtime.py",
+      "sha256": "e0a0241674f7dfe732e8f7998354dac55823fdd063263b5b75b37c1c3620ab09"
+    },
+    {
+      "path": "tools/scan_public_release.py",
+      "sha256": "d1ed1f22c141ea01fd2446cbd66330f3039704be7146cdee1988d43306e3f78e"
+    },
+    {
+      "path": "tools/verify_prepared.py",
+      "sha256": "3adf889f0c1040f51251d7f8b901073e58f35a8e306cb72936711d750ff31804"
+    }
+  ],
+  "contains_previous_git_history": false,
+  "contains_player_data": false,
+  "contains_full_third_party_inputs": false,
+  "client_is_fully_decompiled": false,
+  "publication_scope": "compatibility source and replayable build tools only"
+}

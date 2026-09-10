@@ -1,0 +1,1101 @@
+[
+  {
+    "file": "gmsv/init.c",
+    "before": "    chdir(\"/root/sq_game/GameServer/bin/x64/Debug/\");",
+    "after": "    /* The launcher supplies this instance's working directory. */",
+    "reason": "Honor the isolated runtime working directory instead of the original author's absolute build path."
+  },
+  {
+    "file": "saac/main.c",
+    "before": "    chdir(\"/root/sq_game/AccServer/bin/x64/Debug/\");",
+    "after": "    /* The launcher supplies this instance's working directory. */",
+    "reason": "Honor the isolated runtime working directory."
+  },
+  {
+    "file": "gmsv/util.c",
+    "before": "    sin.sin_addr.s_addr = INADDR_ANY;",
+    "after": "    sin.sin_addr.s_addr = htonl(INADDR_LOOPBACK);",
+    "reason": "This instance is for the user's client on this computer."
+  },
+  {
+    "file": "saac/main.c",
+    "before": "        if ((tcpr = tcpstruct_init(NULL, port, 0,",
+    "after": "        if ((tcpr = tcpstruct_init(\"127.0.0.1\", port, 0,",
+    "reason": "Keep the internal account listener on loopback."
+  },
+  {
+    "file": "gmsv/lua/ltablib.c",
+    "before": "static const luaL_Reg tab_funcs[] = {",
+    "after": "static int legacy_getn (lua_State *L) {\n  luaL_checktype(L, 1, LUA_TTABLE);\n  lua_pushinteger(L, (lua_Integer)lua_rawlen(L, 1));\n  return 1;\n}\n\nstatic const luaL_Reg tab_funcs[] = {\n  {\"getn\", legacy_getn},",
+    "reason": "The bundled Lua 5.3 engine lacks table.getn used by the original netloopfunction and dischargeparty scripts. Restore Lua 5.1 sequence-length semantics; covered by tests/lua_compat.lua."
+  },
+  {
+    "file": "gmsv/mylua/lssprotobase.c",
+    "before": "    lssproto_ClientLogin_send(fd, data);",
+    "after": "    fprintf(stderr, \"[local] ClientLogin result=%s\\n\", data);\n    lssproto_ClientLogin_send(fd, data);",
+    "reason": "Record the native login result without credentials, to distinguish protocol, account, and application-version failures in the real client."
+  },
+  {
+    "file": "gmsv/log.c",
+    "before": "#include \"log.h\"",
+    "after": "#include \"log.h\"\n#include \"configfile.h\"\n#include <dirent.h>\n#include <sys/stat.h>",
+    "reason": "Real character entry crashed in LogLogin/vfprintf: getGameservername had no declaration, so the 64-bit pointer was truncated to an implicit int. Include original declarations, also covering opendir/mkdir in this unit. Verified by tests/log_login.c and strict implicit-declaration compilation."
+  },
+  {
+    "file": "gmsv/autil.c",
+    "before": "#include \"autil.h\"",
+    "after": "#include \"autil.h\"\n#include \"wire_charset.h\"",
+    "reason": "Isolate the verified legacy GBK wire boundary from UTF-8 native code and resources."
+  },
+  {
+    "file": "gmsv/autil.c",
+    "before": "int util_destring(int fd, int sliceno, char *value)\n{\n#ifdef _NEW_PACKET_CODE\n    char t3[4096];\n    int len = base64Decode(MesgSlice[sliceno], t3);\n    strcpy(value, t3);\n    return len;\n#else\n\n    if (strlen(PersonalKey) == 0)\n    {\n        strcpy(PersonalKey, getRandDefaultKey(fd));\n    }\n\n    util_shr_64to256(value, MesgSlice[sliceno], DEFAULTTABLE, PersonalKey);\n    return strlen(value);\n#endif\n}\n",
+    "after": "int util_destring_s(int fd, int sliceno, char *value, size_t capacity)\n{\n    char raw[SLICE_SIZE] = {0};\n    if (!value || !capacity || capacity == (size_t)-1) return -1;\n    value[0] = '\\0';\n    if (sliceno < 0 || sliceno >= SLICE_MAX || !MesgSlice[sliceno] ||\n        strnlen(MesgSlice[sliceno], SLICE_SIZE) >= SLICE_SIZE) return -1;\n#ifdef _NEW_PACKET_CODE\n    int length = base64Decode(MesgSlice[sliceno], raw);\n    if (length < 0 || (size_t)length >= capacity) return -1;\n    memcpy(value, raw, length);\n    value[length] = '\\0';\n    return length;\n#else\n    if (!PersonalKey[0]) strcpy(PersonalKey, getRandDefaultKey(fd));\n    if (strspn(MesgSlice[sliceno], DEFAULTTABLE) != strlen(MesgSlice[sliceno])) return -1;\n    util_shr_64to256(raw, MesgSlice[sliceno], DEFAULTTABLE, PersonalKey);\n    int wire_length = strlen(raw);\n#ifdef _UTF8\n    if (stone_convert_text(raw, value, capacity, \"GBK\", \"UTF-8\") < 0) return -1;\n#else\n    if ((size_t)wire_length >= capacity) return -1;\n    memcpy(value, raw, wire_length + 1);\n#endif\n    return wire_length;\n#endif\n}\n",
+    "reason": "The original SDL client sends GBK but native Lua/data use UTF-8. Decode with an explicit destination capacity and retain the checksum of original wire bytes. All original callers use arrays; object-size macro supplies their real capacity. Covered by tests/wire_text.c."
+  },
+  {
+    "file": "gmsv/include/autil.h",
+    "before": "int util_destring(int fd, int sliceno, char *value);",
+    "after": "#include <stddef.h>\nint util_destring_s(int fd, int sliceno, char *value, size_t capacity);\n#define util_destring(fd, sliceno, value) util_destring_s((fd), (sliceno), (value), __builtin_object_size((value), 1))",
+    "reason": "Pass actual destination buffer bounds without changing the original protocol call sites; unknown capacities are rejected."
+  },
+  {
+    "file": "gmsv/autil.c",
+    "before": "    util_256to64_shl(t1, value, strlen(value), DEFAULTTABLE, PersonalKey);\n    strcat(buffer, \";\");  // It's important to append a SEPARATOR between fields\n    strcat(buffer, t1);\n    return strlen(value);",
+    "after": "    char wire[SLICE_SIZE];\n    int wire_length;\n#ifdef _UTF8\n    wire_length = stone_convert_text(value, wire, sizeof(wire), \"UTF-8\", \"GBK//TRANSLIT\");\n    if (wire_length < 0) {\n        fprintf(stderr, \"[local] invalid outgoing text encoding\\n\");\n        strcpy(wire, \"[invalid text]\");\n        wire_length = strlen(wire);\n    }\n#else\n    if (strlen(value) >= sizeof(wire)) return -1;\n    strcpy(wire, value);\n    wire_length = strlen(wire);\n#endif\n    util_256to64_shl(t1, wire, wire_length, DEFAULTTABLE, PersonalKey);\n    strcat(buffer, \";\");\n    strcat(buffer, t1);\n    return wire_length;",
+    "reason": "Reference SDL autil.cpp decodes wire GBK into UTF-8. Encode outgoing native UTF-8 at this boundary and checksum GBK byte length, preserving original packet framing and integer encoding. Unsupported Unicode is transliterated by iconv."
+  },
+  {
+    "file": "gmsv/lssproto_serv.c",
+    "before": "    checksum += util_mkint(fd, buffer, faceimage);\n    checksum += util_mkint(fd, buffer, level);\n    checksum += util_mkint(fd, buffer, trans);",
+    "after": "    if (CONNECT_getloginmark(fd) != 4) {\n        checksum += util_mkint(fd, buffer, faceimage);\n        checksum += util_mkint(fd, buffer, level);\n        checksum += util_mkint(fd, buffer, trans);\n    }",
+    "reason": "Both original SDL references parse TK as index, text, color, item data, UID, voice length, checksum. Native _TK_PLAYERFACE appended three extra integers and the real target dropped all chat. Keep native function arguments, but serialize the verified six-field App profile for login marker 4. Covered by tests/chat_packet.c and actual client chat acceptance."
+  },
+  {
+    "file": "gmsv/lssproto_serv.c",
+    "before": "    printf(\"[lssproto_ServerDispatchMessage]key:%s\\n\", PersonalKey);",
+    "after": "    /* Session keys stay inside the native connection. */",
+    "reason": "Remove unconditional original credential/key diagnostics from normal gameplay logs after protocol verification."
+  },
+  {
+    "file": "gmsv/lssproto_serv.c",
+    "before": "    printf(\"[lssproto_ServerDispatchMessage]%s\\n\", raw);",
+    "after": "    /* Raw login/game packet fields are not written to normal logs. */",
+    "reason": "Raw login payloads include native account credentials; normal logs need event identifiers only."
+  },
+  {
+    "file": "gmsv/lssproto_serv.c",
+    "before": "    printf(\"[lssproto_ServerDispatchMessage]call FreeDispatchMessage %d\\n\", func);",
+    "after": "    printf(\"[local] recv function=%d bytes=%d\\n\", func, len);",
+    "reason": "Keep concise native operation evidence without recording packet contents."
+  },
+  {
+    "file": "gmsv/item/item.c",
+    "before": "if(FreeJudgePlayer(charaindex) == 1){\n    \tsprintf(ITEM_itemStatusStringBuffer, \"%s|%d\", ITEM_itemStatusStringBuffer, FreeGetItemStar(itemindex));\n    }\n#endif\n    sprintf",
+    "after": "if(CONNECT_getloginmark(CHAR_getWorkInt(charaindex, CHAR_WORKFD)) != 4 && FreeJudgePlayer(charaindex) == 1){\n    \tsprintf(ITEM_itemStatusStringBuffer, \"%s|%d\", ITEM_itemStatusStringBuffer, FreeGetItemStar(itemindex));\n    }\n#endif\n    sprintf",
+    "reason": "App SDL reference S/I uses 21 fields per item and numbered I uses 22. The optional original star field shifted every subsequent inventory slot on relogin. Retain it for other profiles; verify occupied, empty and numbered App serializer shapes in tests/inventory_fields.c."
+  },
+  {
+    "file": "gmsv/item/item.c",
+    "before": "if(FreeJudgePlayer(charaindex) == 1){\n    \tsprintf(ITEM_itemStatusStringBuffer, \"%s|\", ITEM_itemStatusStringBuffer);\n    }\n#endif // _ITEM_SYSTEM\n\n    return",
+    "after": "if(CONNECT_getloginmark(CHAR_getWorkInt(charaindex, CHAR_WORKFD)) != 4 && FreeJudgePlayer(charaindex) == 1){\n    \tsprintf(ITEM_itemStatusStringBuffer, \"%s|\", ITEM_itemStatusStringBuffer);\n    }\n#endif // _ITEM_SYSTEM\n\n    return",
+    "reason": "App SDL reference S/I uses 21 fields per item and numbered I uses 22. The optional original star field shifted every subsequent inventory slot on relogin. Retain it for other profiles; verify occupied, empty and numbered App serializer shapes in tests/inventory_fields.c."
+  },
+  {
+    "file": "gmsv/item/item.c",
+    "before": "if(FreeJudgePlayer(charaindex) == 1){\n    \tsprintf(ITEM_itemStatusStringBuffer, \"%s|\", ITEM_itemStatusStringBuffer);\n    }\n#endif // _ITEM_SYSTEM\n    return",
+    "after": "if(CONNECT_getloginmark(CHAR_getWorkInt(charaindex, CHAR_WORKFD)) != 4 && FreeJudgePlayer(charaindex) == 1){\n    \tsprintf(ITEM_itemStatusStringBuffer, \"%s|\", ITEM_itemStatusStringBuffer);\n    }\n#endif // _ITEM_SYSTEM\n    return",
+    "reason": "App SDL reference S/I uses 21 fields per item and numbered I uses 22. The optional original star field shifted every subsequent inventory slot on relogin. Retain it for other profiles; verify occupied, empty and numbered App serializer shapes in tests/inventory_fields.c."
+  },
+  {
+    "file": "gmsv/char/char.c",
+    "before": "#ifdef _QTALK_FUNCTION\n                strlength = strlen(CHAR_statusSendBuffer);\n                snprintf(CHAR_statusSendBuffer + strlength, sizeof(CHAR_statusSendBuffer) - strlength - 1, \"|%d\", CHAR_getInt(index, CHAR_AMPOINT));\n#endif\n                return CHAR_statusSendBuffer;",
+    "after": "                /* Target 20260805 P token 41 is the active role slot (1..5).\n                 * Use the authenticated child account creation order, including\n                 * the current primary; the client routes K/W/J and controlled\n                 * battle state using this fixed slot.\n                 */\n                if (CONNECT_getloginmark(getfdFromCharaIndex(index)) == 4)\n                {\n                    strlength = strlen(CHAR_statusSendBuffer);\n                    snprintf(CHAR_statusSendBuffer + strlength,\n                             sizeof(CHAR_statusSendBuffer) - strlength, \"|%d\",\n                             stone_app_primary_slot(getfdFromCharaIndex(index)));\n                }\n#ifdef _QTALK_FUNCTION\n                else\n                {\n                    strlength = strlen(CHAR_statusSendBuffer);\n                    snprintf(CHAR_statusSendBuffer + strlength, sizeof(CHAR_statusSendBuffer) - strlength - 1, \"|%d\", CHAR_getInt(index, CHAR_AMPOINT));\n                }\n#endif\n                return CHAR_statusSendBuffer;",
+    "reason": "Target P parser 0x871e4c reads token 41 as the active role slot. Original-server five-character comparison confirms fixed csalogin child creation order, including primary slot 5. K/W/J and controlled combat must use that slot. Preserve legacy layout for non-App connections."
+  },
+  {
+    "file": "gmsv/battle/battle_command.c",
+    "before": "    char *pszCommand,\n    int size\n)",
+    "after": "    char *pszCommand,\n    char *pszAppCommand,\n    int size\n)",
+    "reason": "The verified 20260805 target set_bc at 0x531969/0x531977 reads MP/maxMP after the two effects: 17 fields per actor, versus 15 in this original server. Generate legacy and App views in one native traversal so relife, transformation and dismount flags are consumed only once. Select by the existing authenticated login mark for participants and spectators."
+  },
+  {
+    "file": "gmsv/battle/battle_command.c",
+    "before": "    char szBuffer[4096] = \"\", *pszTop, *pszLast;",
+    "after": "    char szBuffer[4096] = \"\", *pszTop, *pszLast;\n    char *pszAppTop = pszAppCommand, *pszAppLast = pszAppCommand + size - 1;",
+    "reason": "The verified 20260805 target set_bc at 0x531969/0x531977 reads MP/maxMP after the two effects: 17 fields per actor, versus 15 in this original server. Generate legacy and App views in one native traversal so relife, transformation and dismount flags are consumed only once. Select by the existing authenticated login mark for participants and spectators."
+  },
+  {
+    "file": "gmsv/battle/battle_command.c",
+    "before": "    STRCPY_TAIL(pszTop, pszLast, szBuffer);\n\n    for (j = 0; j < 2; j ++)",
+    "after": "    STRCPY_TAIL(pszTop, pszLast, szBuffer);\n    STRCPY_TAIL(pszAppTop, pszAppLast, szBuffer);\n\n    for (j = 0; j < 2; j ++)",
+    "reason": "The verified 20260805 target set_bc at 0x531969/0x531977 reads MP/maxMP after the two effects: 17 fields per actor, versus 15 in this original server. Generate legacy and App views in one native traversal so relife, transformation and dismount flags are consumed only once. Select by the existing authenticated login mark for participants and spectators."
+  },
+  {
+    "file": "gmsv/battle/battle_command.c",
+    "before": "            STRCPY_TAIL(pszTop, pszLast, szBuffer);\n\n            if (pszTop >= pszLast)",
+    "after": "            /* Snapshot both wire layouts before native one-shot flags change again. */\n            size_t baseLength = strlen(szBuffer);\n            size_t titleLength = strlen(szEscapeTitle);\n            char mana[32];\n            snprintf(mana, sizeof(mana), \"%X|%X|\",\n                     max(CHAR_getInt(charaindex, CHAR_MP), 0),\n                     max(CHAR_getWorkInt(charaindex, CHAR_WORKMAXMP), 0));\n            if (pszTop + baseLength >= pszLast - 1 ||\n                pszAppTop + baseLength - titleLength + strlen(mana) >= pszAppLast - 1)\n            {\n                pszCommand[0] = pszAppCommand[0] = 0;\n                return FALSE;\n            }\n            STRCPY_TAIL(pszTop, pszLast, szBuffer);\n            /* Fast title reader 0x861b50 consumes no bytes; its next hex\n             * parser mistakes digits/A-F in a title for the actor image.\n             * Keep the title separator but omit its text only in the App view.\n             * Names and the entire native numeric suffix remain byte-identical. */\n            char *appTitle = strchr(szBuffer, '|') + strlen(szEscapeName) + 2;\n            memmove(appTitle, appTitle + titleLength,\n                    baseLength - (size_t)(appTitle - szBuffer) - titleLength + 1);\n            STRCPY_TAIL(pszAppTop, pszAppLast, szBuffer);\n            STRCPY_TAIL(pszAppTop, pszAppLast, mana);\n\n            if (pszTop >= pszLast)",
+    "reason": "The verified target needs 17 actor fields. Its fast title reader at 0x861b50 is a no-op and the following 0x861e60 hex parser misreads digits/A-F in titles. Copy the original 15-field record to legacy output, then empty only the App title and append real MP/maxMP in the same native traversal. App battle UI omits titles in both normal and fast mode; legacy titles, all other actor data and one-shot state transitions are preserved."
+  },
+  {
+    "file": "gmsv/battle/battle_command.c",
+    "before": "    char *pszBcString   // BC  ٯ\n)",
+    "after": "    char *pszBcString,   // BC\n    char *pszAppBcString\n)",
+    "reason": "The verified 20260805 target set_bc at 0x531969/0x531977 reads MP/maxMP after the two effects: 17 fields per actor, versus 15 in this original server. Generate legacy and App views in one native traversal so relife, transformation and dismount flags are consumed only once. Select by the existing authenticated login mark for participants and spectators."
+  },
+  {
+    "file": "gmsv/battle/battle_command.c",
+    "before": "        BATTLE_CommandSend(charaindex, pszBcString);",
+    "after": "        BATTLE_CommandSend(charaindex, CONNECT_getloginmark(getfdFromCharaIndex(charaindex)) == 4\n                           ? pszAppBcString : pszBcString);",
+    "reason": "The verified 20260805 target set_bc at 0x531969/0x531977 reads MP/maxMP after the two effects: 17 fields per actor, versus 15 in this original server. Generate legacy and App views in one native traversal so relife, transformation and dismount flags are consumed only once. Select by the existing authenticated login mark for participants and spectators."
+  },
+  {
+    "file": "gmsv/battle/battle_command.c",
+    "before": "    BATTLE_MakeCharaString(battleindex, szAllBattleString, sizeof(szAllBattleString));",
+    "after": "    if (!BATTLE_MakeCharaString(battleindex, szAllBattleString, szAppBattleString, sizeof(szAllBattleString))) return;",
+    "reason": "The verified 20260805 target set_bc at 0x531969/0x531977 reads MP/maxMP after the two effects: 17 fields per actor, versus 15 in this original server. Generate legacy and App views in one native traversal so relife, transformation and dismount flags are consumed only once. Select by the existing authenticated login mark for participants and spectators."
+  },
+  {
+    "file": "gmsv/battle/battle_command.c",
+    "before": "    BATTLE_MakeCharaString(\n        battleindex,\n        szAllBattleString,\n        sizeof(szAllBattleString)\n    );",
+    "after": "    if (!BATTLE_MakeCharaString(battleindex, szAllBattleString, szAppBattleString, sizeof(szAllBattleString))) return;",
+    "reason": "The verified 20260805 target set_bc at 0x531969/0x531977 reads MP/maxMP after the two effects: 17 fields per actor, versus 15 in this original server. Generate legacy and App views in one native traversal so relife, transformation and dismount flags are consumed only once. Select by the existing authenticated login mark for participants and spectators."
+  },
+  {
+    "file": "gmsv/battle/battle_command.c",
+    "before": "void BATTLE_CharSendAll(int battleindex)\n{\n    int i, j, charaindex, flg, pet, At_SoubiIndex, pindex;\n    char szBp[256];\n    BATTLE  *pBattle;\n    //得到两边每个玩家宠物战斗信息,通过BC|拼接\n    //得到两边每个玩家宠物战斗信息,通过BP|拼接\n    //通过B包发送给客户端\n    if (!BATTLE_MakeCharaString(battleindex, szAllBattleString, szAppBattleString, sizeof(szAllBattleString))) return;\n\n    for (j = 0; j < 2; j ++)\n    {\n        for (i = 0; i < BATTLE_ENTRY_MAX; i ++)\n        {\n            charaindex = BattleArray[battleindex].Side[j].Entry[i].charaindex;\n\n            if (CHAR_CHECKINDEX(charaindex) == FALSE)\n            {\n                continue;\n            }\n\n            if (CHAR_getInt(charaindex, CHAR_WHICHTYPE) != CHAR_TYPEPLAYER)\n            {\n                continue;\n            }\n\n            flg = 0;\n\n            if (BattleArray[battleindex].Side[j].flg & BSIDE_FLG_SURPRISE)\n            {\n                flg |= BP_FLG_ENEMY_SURPRISAL;\n            }\n            else if (BattleArray[battleindex].Side[1 - j].flg & BSIDE_FLG_SURPRISE)\n            {\n                flg |= BP_FLG_PLAYER_SURPRISAL;\n            }\n\n            if (CHAR_getWorkInt(charaindex, CHAR_WORKBATTLEMODE)\n                    == BATTLE_CHARMODE_RESCUE)\n            {\n                flg |= BP_FLG_JOIN;     // 辅爵\n            }\n\n            At_SoubiIndex = CHAR_getItemIndex(charaindex, CHAR_ARM);\n\n            if (ITEM_CHECKINDEX(At_SoubiIndex) == FALSE)\n            {\n            }\n            else\n            {\n                if (ITEM_getInt(At_SoubiIndex, ITEM_TYPE) == ITEM_BOOMERANG)\n                {\n                    flg |= BP_FLG_BOOMERANG;\n                }\n            }\n\n            pet = CHAR_getInt(charaindex, CHAR_DEFAULTPET);\n\n            if (pet >= 0)\n            {\n                snprintf(szBp, sizeof(szBp), \"K%d\", pet);\n                CHAR_sendStatusString(charaindex, szBp);\n                pindex = CHAR_getCharPet(charaindex, pet);\n                //宠技:暗月狂狼(嗜血技的变体) \n                {\n                    char msg[32] = {0};\n                    sprintf(msg, \"o%d\", pet);\n                    CHAR_sendStatusString(charaindex, msg);\n                }\n                //宠技:媚惑术 // 限制中了媚惑术的宠物的技能\n                if (CHAR_getWorkInt(pindex, CHAR_WORKFOXROUND) != -1)     //若是变成小狐狸\n                {\n                    char msg[32] = {0};\n                    sprintf(msg, \"a%d\", pet);\n                    CHAR_sendStatusString(charaindex, msg);\n                }\n\n                if (CHAR_CHECKINDEX(pindex) == TRUE)\n                {\n                    if (BATTLE_IsCharge(pindex) == TRUE)\n                    {\n                        flg |= BP_FLG_PET_MENU_OFF;\n                    }\n\n                    if (BATTLE_CanMoveCheck(pindex) == FALSE)\n                    {\n                        flg |= BP_FLG_PET_MENU_OFF;\n                    }\n\n                    if (CHAR_getFlg(pindex, CHAR_ISDIE) == TRUE)\n                    {\n                        flg |= BP_FLG_PET_MENU_OFF;\n                    }\n                }\n            }\n            else\n            {\n                flg |= BP_FLG_PET_MENU_OFF;\n            }\n\n            if (BATTLE_CanMoveCheck(charaindex) == FALSE\n                    || CHAR_getFlg(charaindex, CHAR_ISDIE) == TRUE\n               )\n            {\n                flg |= BP_FLG_PLAYER_MENU_OFF;\n            }\n\n            if (BattleArray[battleindex].Side[j].flg & BSIDE_FLG_SURPRISE)\n            {\n                flg |= BP_FLG_PLAYER_MENU_OFF;\n                flg |= BP_FLG_PET_MENU_OFF;\n            }\n\n            sprintf(szBp, \"BP|%X|%X|%X\",\n                    i + SIDE_OFFSET * j,\n                    flg, CHAR_getInt(charaindex, CHAR_MP)\n                   );\n            BATTLE_CommandSend(charaindex, szBp);\n            BATTLE_CommandSend(charaindex, szAllBattleString);\n        }\n    }\n\n    pBattle = BattleArray[battleindex].pNext;\n\n    for (; pBattle ; pBattle = pBattle->pNext)\n    {\n        // 仇及失玉伊旦互恳仄中井民尼永弁\n        if (BATTLE_CHECKADDRESS(pBattle) == FALSE)\n        {\n            fprint(\"err:观战battle address错误(%p)\\n\", pBattle);\n            break;\n        }\n\n        BATTLE_BpSendToWatch(pBattle, szAllBattleString);\n    }\n}\n\n",
+    "after": "void BATTLE_CharSendAll(int battleindex)\n{\n    int i, j, charaindex, flg, pet, At_SoubiIndex, pindex;\n    char szBp[256];\n    BATTLE  *pBattle;\n    //得到两边每个玩家宠物战斗信息,通过BC|拼接\n    //得到两边每个玩家宠物战斗信息,通过BP|拼接\n    //通过B包发送给客户端\n    if (!BATTLE_MakeCharaString(battleindex, szAllBattleString, szAppBattleString, sizeof(szAllBattleString))) return;\n\n    for (j = 0; j < 2; j ++)\n    {\n        for (i = 0; i < BATTLE_ENTRY_MAX; i ++)\n        {\n            charaindex = BattleArray[battleindex].Side[j].Entry[i].charaindex;\n\n            if (CHAR_CHECKINDEX(charaindex) == FALSE)\n            {\n                continue;\n            }\n\n            if (CHAR_getInt(charaindex, CHAR_WHICHTYPE) != CHAR_TYPEPLAYER)\n            {\n                continue;\n            }\n\n            flg = 0;\n\n            if (BattleArray[battleindex].Side[j].flg & BSIDE_FLG_SURPRISE)\n            {\n                flg |= BP_FLG_ENEMY_SURPRISAL;\n            }\n            else if (BattleArray[battleindex].Side[1 - j].flg & BSIDE_FLG_SURPRISE)\n            {\n                flg |= BP_FLG_PLAYER_SURPRISAL;\n            }\n\n            if (CHAR_getWorkInt(charaindex, CHAR_WORKBATTLEMODE)\n                    == BATTLE_CHARMODE_RESCUE)\n            {\n                flg |= BP_FLG_JOIN;     // 辅爵\n            }\n\n            At_SoubiIndex = CHAR_getItemIndex(charaindex, CHAR_ARM);\n\n            if (ITEM_CHECKINDEX(At_SoubiIndex) == FALSE)\n            {\n            }\n            else\n            {\n                if (ITEM_getInt(At_SoubiIndex, ITEM_TYPE) == ITEM_BOOMERANG)\n                {\n                    flg |= BP_FLG_BOOMERANG;\n                }\n            }\n\n            pet = CHAR_getInt(charaindex, CHAR_DEFAULTPET);\n\n            if (pet >= 0)\n            {\n                snprintf(szBp, sizeof(szBp), \"K%d\", pet);\n                CHAR_sendStatusString(charaindex, szBp);\n                pindex = CHAR_getCharPet(charaindex, pet);\n                //宠技:暗月狂狼(嗜血技的变体) \n                {\n                    char msg[32] = {0};\n                    sprintf(msg, \"o%d\", pet);\n                    CHAR_sendStatusString(charaindex, msg);\n                }\n                //宠技:媚惑术 // 限制中了媚惑术的宠物的技能\n                if (CHAR_getWorkInt(pindex, CHAR_WORKFOXROUND) != -1)     //若是变成小狐狸\n                {\n                    char msg[32] = {0};\n                    sprintf(msg, \"a%d\", pet);\n                    CHAR_sendStatusString(charaindex, msg);\n                }\n\n                if (CHAR_CHECKINDEX(pindex) == TRUE)\n                {\n                    if (BATTLE_IsCharge(pindex) == TRUE)\n                    {\n                        flg |= BP_FLG_PET_MENU_OFF;\n                    }\n\n                    if (BATTLE_CanMoveCheck(pindex) == FALSE)\n                    {\n                        flg |= BP_FLG_PET_MENU_OFF;\n                    }\n\n                    if (CHAR_getFlg(pindex, CHAR_ISDIE) == TRUE)\n                    {\n                        flg |= BP_FLG_PET_MENU_OFF;\n                    }\n                }\n            }\n            else\n            {\n                flg |= BP_FLG_PET_MENU_OFF;\n            }\n\n            if (BATTLE_CanMoveCheck(charaindex) == FALSE\n                    || CHAR_getFlg(charaindex, CHAR_ISDIE) == TRUE\n               )\n            {\n                flg |= BP_FLG_PLAYER_MENU_OFF;\n            }\n\n            if (BattleArray[battleindex].Side[j].flg & BSIDE_FLG_SURPRISE)\n            {\n                flg |= BP_FLG_PLAYER_MENU_OFF;\n                flg |= BP_FLG_PET_MENU_OFF;\n            }\n\n            sprintf(szBp, \"BP|%X|%X|%X\",\n                    i + SIDE_OFFSET * j,\n                    flg, CHAR_getInt(charaindex, CHAR_MP)\n                   );\n            BATTLE_CommandSend(charaindex, szBp);\n            BATTLE_CommandSend(charaindex, CONNECT_getloginmark(getfdFromCharaIndex(charaindex)) == 4\n                               ? szAppBattleString : szAllBattleString);\n        }\n    }\n\n    pBattle = BattleArray[battleindex].pNext;\n\n    for (; pBattle ; pBattle = pBattle->pNext)\n    {\n        // 仇及失玉伊旦互恳仄中井民尼永弁\n        if (BATTLE_CHECKADDRESS(pBattle) == FALSE)\n        {\n            fprint(\"err:观战battle address错误(%p)\\n\", pBattle);\n            break;\n        }\n\n        BATTLE_BpSendToWatch(pBattle, szAllBattleString, szAppBattleString);\n    }\n}\n\n",
+    "reason": "The verified 20260805 target set_bc at 0x531969/0x531977 reads MP/maxMP after the two effects: 17 fields per actor, versus 15 in this original server. Generate legacy and App views in one native traversal so relife, transformation and dismount flags are consumed only once. Select by the existing authenticated login mark for participants and spectators."
+  },
+  {
+    "file": "gmsv/battle/battle_command.c",
+    "before": "void BATTLE_CharSendOne(int battleindex, int mycharaindex)\n{\n    int i, j, charaindex, flg, pet, At_SoubiIndex, pindex;\n    char szBp[256];\n    BATTLE  *pBattle;\n    if (!BATTLE_MakeCharaString(battleindex, szAllBattleString, szAppBattleString, sizeof(szAllBattleString))) return;\n\n    for (j = 0; j < 2; j ++)\n    {\n        for (i = 0; i < BATTLE_ENTRY_MAX; i ++)\n        {\n            charaindex = BattleArray[battleindex].Side[j].Entry[i].charaindex;\n\n            if (CHAR_CHECKINDEX(charaindex) == FALSE)\n            {\n                continue;\n            }\n\n            if (CHAR_getInt(charaindex, CHAR_WHICHTYPE) != CHAR_TYPEPLAYER)\n            {\n                continue;\n            }\n\n            if (charaindex != mycharaindex)\n            {\n                continue;\n            }\n\n            flg = 0;\n                //遭遇偷袭（第一回合玩家不能做动作\n            if (BattleArray[battleindex].Side[j].flg & BSIDE_FLG_SURPRISE)\n            {\n                flg |= BP_FLG_ENEMY_SURPRISAL;\n            }\n                //出奇一击（第一回合怪物不能做动作）\n            else if (BattleArray[battleindex].Side[1 - j].flg & BSIDE_FLG_SURPRISE)\n            {\n                flg |= BP_FLG_PLAYER_SURPRISAL;\n            }\n                //中途加入战斗\n            if (CHAR_getWorkInt(charaindex, CHAR_WORKBATTLEMODE)\n                    == BATTLE_CHARMODE_RESCUE)\n            {\n                flg |= BP_FLG_JOIN;     // 辅爵\n            }\n\n            At_SoubiIndex = CHAR_getItemIndex(charaindex, CHAR_ARM);\n\n            if (ITEM_CHECKINDEX(At_SoubiIndex) == FALSE)\n            {\n            }\n            else\n            {\n                if (ITEM_getInt(At_SoubiIndex, ITEM_TYPE) == ITEM_BOOMERANG)\n                {\n                    flg |= BP_FLG_BOOMERANG;\n                }\n            }\n\n            pet = CHAR_getInt(charaindex, CHAR_DEFAULTPET);\n\n            if (pet >= 0)\n            {\n                snprintf(szBp, sizeof(szBp), \"K%d\", pet);\n                CHAR_sendStatusString(charaindex, szBp);\n                pindex = CHAR_getCharPet(charaindex, pet);\n                //宠技:暗月狂狼(嗜血技的变体) \n                {\n                    char msg[32] = {0};\n                    sprintf(msg, \"o%d\", pet);\n                    CHAR_sendStatusString(charaindex, msg);\n                }\n                //宠技:媚惑术 // 限制中了媚惑术的宠物的技能\n                if (CHAR_getWorkInt(pindex, CHAR_WORKFOXROUND) != -1)     //若是变成小狐狸\n                {\n                    char msg[32] = {0};\n                    sprintf(msg, \"a%d\", pet);\n                    CHAR_sendStatusString(charaindex, msg);\n                }\n\n                if (CHAR_CHECKINDEX(pindex) == TRUE)\n                {\n                    //死亡菜单关闭\n                    if (BATTLE_IsCharge(pindex) == TRUE)\n                    {\n                        flg |= BP_FLG_PET_MENU_OFF;\n                    }\n\n                    if (BATTLE_CanMoveCheck(pindex) == FALSE)\n                    {\n                        flg |= BP_FLG_PET_MENU_OFF;\n                    }\n\n                    if (CHAR_getFlg(pindex, CHAR_ISDIE) == TRUE)\n                    {\n                        flg |= BP_FLG_PET_MENU_OFF;\n                    }\n                }\n            }\n            else\n            {\n                flg |= BP_FLG_PET_MENU_OFF;\n            }\n\n            if (BATTLE_CanMoveCheck(charaindex) == FALSE\n                    || CHAR_getFlg(charaindex, CHAR_ISDIE) == TRUE\n               )\n            {\n                flg |= BP_FLG_PLAYER_MENU_OFF;\n            }\n\n            if (BattleArray[battleindex].Side[j].flg & BSIDE_FLG_SURPRISE)\n            {\n                flg |= BP_FLG_PLAYER_MENU_OFF;\n                flg |= BP_FLG_PET_MENU_OFF;\n            }\n\n            sprintf(szBp, \"BP|%X|%X|%X\",\n                    i + SIDE_OFFSET * j,\n                    flg, CHAR_getInt(charaindex, CHAR_MP)\n                   );\n            BATTLE_CommandSend(charaindex, szBp);\n            BATTLE_CommandSend(charaindex, szAllBattleString);\n        }\n    }\n\n    pBattle = BattleArray[battleindex].pNext;\n\n    for (; pBattle ; pBattle = pBattle->pNext)\n    {\n        // 仇及失玉伊旦互恳仄中井民尼永弁\n        if (BATTLE_CHECKADDRESS(pBattle) == FALSE)\n        {\n            fprint(\"err:观战battle address错误(%p)\\n\", pBattle);\n            break;\n        }\n\n        BATTLE_BpSendToWatch(pBattle, szAllBattleString);\n    }\n}\n\n",
+    "after": "void BATTLE_CharSendOne(int battleindex, int mycharaindex)\n{\n    int i, j, charaindex, flg, pet, At_SoubiIndex, pindex;\n    char szBp[256];\n    BATTLE  *pBattle;\n    if (!BATTLE_MakeCharaString(battleindex, szAllBattleString, szAppBattleString, sizeof(szAllBattleString))) return;\n\n    for (j = 0; j < 2; j ++)\n    {\n        for (i = 0; i < BATTLE_ENTRY_MAX; i ++)\n        {\n            charaindex = BattleArray[battleindex].Side[j].Entry[i].charaindex;\n\n            if (CHAR_CHECKINDEX(charaindex) == FALSE)\n            {\n                continue;\n            }\n\n            if (CHAR_getInt(charaindex, CHAR_WHICHTYPE) != CHAR_TYPEPLAYER)\n            {\n                continue;\n            }\n\n            if (charaindex != mycharaindex)\n            {\n                continue;\n            }\n\n            flg = 0;\n                //遭遇偷袭（第一回合玩家不能做动作\n            if (BattleArray[battleindex].Side[j].flg & BSIDE_FLG_SURPRISE)\n            {\n                flg |= BP_FLG_ENEMY_SURPRISAL;\n            }\n                //出奇一击（第一回合怪物不能做动作）\n            else if (BattleArray[battleindex].Side[1 - j].flg & BSIDE_FLG_SURPRISE)\n            {\n                flg |= BP_FLG_PLAYER_SURPRISAL;\n            }\n                //中途加入战斗\n            if (CHAR_getWorkInt(charaindex, CHAR_WORKBATTLEMODE)\n                    == BATTLE_CHARMODE_RESCUE)\n            {\n                flg |= BP_FLG_JOIN;     // 辅爵\n            }\n\n            At_SoubiIndex = CHAR_getItemIndex(charaindex, CHAR_ARM);\n\n            if (ITEM_CHECKINDEX(At_SoubiIndex) == FALSE)\n            {\n            }\n            else\n            {\n                if (ITEM_getInt(At_SoubiIndex, ITEM_TYPE) == ITEM_BOOMERANG)\n                {\n                    flg |= BP_FLG_BOOMERANG;\n                }\n            }\n\n            pet = CHAR_getInt(charaindex, CHAR_DEFAULTPET);\n\n            if (pet >= 0)\n            {\n                snprintf(szBp, sizeof(szBp), \"K%d\", pet);\n                CHAR_sendStatusString(charaindex, szBp);\n                pindex = CHAR_getCharPet(charaindex, pet);\n                //宠技:暗月狂狼(嗜血技的变体) \n                {\n                    char msg[32] = {0};\n                    sprintf(msg, \"o%d\", pet);\n                    CHAR_sendStatusString(charaindex, msg);\n                }\n                //宠技:媚惑术 // 限制中了媚惑术的宠物的技能\n                if (CHAR_getWorkInt(pindex, CHAR_WORKFOXROUND) != -1)     //若是变成小狐狸\n                {\n                    char msg[32] = {0};\n                    sprintf(msg, \"a%d\", pet);\n                    CHAR_sendStatusString(charaindex, msg);\n                }\n\n                if (CHAR_CHECKINDEX(pindex) == TRUE)\n                {\n                    //死亡菜单关闭\n                    if (BATTLE_IsCharge(pindex) == TRUE)\n                    {\n                        flg |= BP_FLG_PET_MENU_OFF;\n                    }\n\n                    if (BATTLE_CanMoveCheck(pindex) == FALSE)\n                    {\n                        flg |= BP_FLG_PET_MENU_OFF;\n                    }\n\n                    if (CHAR_getFlg(pindex, CHAR_ISDIE) == TRUE)\n                    {\n                        flg |= BP_FLG_PET_MENU_OFF;\n                    }\n                }\n            }\n            else\n            {\n                flg |= BP_FLG_PET_MENU_OFF;\n            }\n\n            if (BATTLE_CanMoveCheck(charaindex) == FALSE\n                    || CHAR_getFlg(charaindex, CHAR_ISDIE) == TRUE\n               )\n            {\n                flg |= BP_FLG_PLAYER_MENU_OFF;\n            }\n\n            if (BattleArray[battleindex].Side[j].flg & BSIDE_FLG_SURPRISE)\n            {\n                flg |= BP_FLG_PLAYER_MENU_OFF;\n                flg |= BP_FLG_PET_MENU_OFF;\n            }\n\n            sprintf(szBp, \"BP|%X|%X|%X\",\n                    i + SIDE_OFFSET * j,\n                    flg, CHAR_getInt(charaindex, CHAR_MP)\n                   );\n            BATTLE_CommandSend(charaindex, szBp);\n            BATTLE_CommandSend(charaindex, CONNECT_getloginmark(getfdFromCharaIndex(charaindex)) == 4\n                               ? szAppBattleString : szAllBattleString);\n        }\n    }\n\n    pBattle = BattleArray[battleindex].pNext;\n\n    for (; pBattle ; pBattle = pBattle->pNext)\n    {\n        // 仇及失玉伊旦互恳仄中井民尼永弁\n        if (BATTLE_CHECKADDRESS(pBattle) == FALSE)\n        {\n            fprint(\"err:观战battle address错误(%p)\\n\", pBattle);\n            break;\n        }\n\n        BATTLE_BpSendToWatch(pBattle, szAllBattleString, szAppBattleString);\n    }\n}\n\n",
+    "reason": "The verified 20260805 target set_bc at 0x531969/0x531977 reads MP/maxMP after the two effects: 17 fields per actor, versus 15 in this original server. Generate legacy and App views in one native traversal so relife, transformation and dismount flags are consumed only once. Select by the existing authenticated login mark for participants and spectators."
+  },
+  {
+    "file": "gmsv/battle/battle.c",
+    "before": "char szAllBattleString[BATTLE_STRING_MAX];",
+    "after": "char szAllBattleString[BATTLE_STRING_MAX];\nchar szAppBattleString[BATTLE_STRING_MAX];",
+    "reason": "The verified 20260805 target set_bc at 0x531969/0x531977 reads MP/maxMP after the two effects: 17 fields per actor, versus 15 in this original server. Generate legacy and App views in one native traversal so relife, transformation and dismount flags are consumed only once. Select by the existing authenticated login mark for participants and spectators."
+  },
+  {
+    "file": "gmsv/battle/battle.c",
+    "before": "            BATTLE_MakeCharaString(battleindex, szAllBattleString,\n                                   sizeof(szAllBattleString));\n            BATTLE_BpSendToWatch(pWatchBattle, szAllBattleString);",
+    "after": "            if (!BATTLE_MakeCharaString(battleindex, szAllBattleString, szAppBattleString,\n                                        sizeof(szAllBattleString))) return FALSE;\n            BATTLE_BpSendToWatch(pWatchBattle, szAllBattleString, szAppBattleString);",
+    "reason": "The verified 20260805 target set_bc at 0x531969/0x531977 reads MP/maxMP after the two effects: 17 fields per actor, versus 15 in this original server. Generate legacy and App views in one native traversal so relife, transformation and dismount flags are consumed only once. Select by the existing authenticated login mark for participants and spectators."
+  },
+  {
+    "file": "gmsv/include/battle.h",
+    "before": "extern char szAllBattleString[BATTLE_STRING_MAX];",
+    "after": "extern char szAppBattleString[BATTLE_STRING_MAX];\nextern char szAllBattleString[BATTLE_STRING_MAX];",
+    "reason": "The verified 20260805 target set_bc at 0x531969/0x531977 reads MP/maxMP after the two effects: 17 fields per actor, versus 15 in this original server. Generate legacy and App views in one native traversal so relife, transformation and dismount flags are consumed only once. Select by the existing authenticated login mark for participants and spectators."
+  },
+  {
+    "file": "gmsv/include/battle.h",
+    "before": "void BATTLE_BpSendToWatch(BATTLE *pBattle,  char *pszBcString);",
+    "after": "void BATTLE_BpSendToWatch(BATTLE *pBattle, char *pszBcString, char *pszAppBcString);",
+    "reason": "The verified 20260805 target set_bc at 0x531969/0x531977 reads MP/maxMP after the two effects: 17 fields per actor, versus 15 in this original server. Generate legacy and App views in one native traversal so relife, transformation and dismount flags are consumed only once. Select by the existing authenticated login mark for participants and spectators."
+  },
+  {
+    "file": "gmsv/include/battle_command.h",
+    "before": "    int size            //",
+    "after": "    char *pszAppCommand,\n    int size            //",
+    "reason": "The verified 20260805 target set_bc at 0x531969/0x531977 reads MP/maxMP after the two effects: 17 fields per actor, versus 15 in this original server. Generate legacy and App views in one native traversal so relife, transformation and dismount flags are consumed only once. Select by the existing authenticated login mark for participants and spectators."
+  },
+  {
+    "file": "gmsv/lssproto_serv.c",
+    "before": "#include \"descrypt.h\"",
+    "after": "#include \"descrypt.h\"\n#include \"app_role.h\"",
+    "reason": "Target 20260805 requires the authenticated role roster (2024/L) in addition to P slot 41. set_bc 0x531647 enables commands only when roster owner equals P slot. Handle checksummed 2025 roster requests and publish the native player identity with P snapshots."
+  },
+  {
+    "file": "gmsv/lssproto_serv.c",
+    "before": "    case LSSPROTO_PB_RECV:\n",
+    "after": "    case 2025: /* Target role operations: string, original-wire checksum. */\n    {\n        char request[512];\n        int checksum = util_destring(fd, 2, request), received;\n        util_deint(fd, 3, &received);\n        if (checksum < 0 || checksum != received) {\n            util_DiscardMessage();\n            logHack(fd, HACK_CHECKSUMERROR);\n            return -1;\n        }\n        if (CONNECT_getloginmark(fd) == 4)\n            stone_app_role_request(fd, request);\n        util_DiscardMessage();\n        funflg = 1;\n        break;\n    }\n    case LSSPROTO_PB_RECV:\n",
+    "reason": "Target 20260805 requires the authenticated role roster (2024/L) in addition to P slot 41. set_bc 0x531647 enables commands only when roster owner equals P slot. Handle checksummed 2025 roster requests and publish the native player identity with P snapshots."
+  },
+  {
+    "file": "gmsv/lssproto_serv.c",
+    "before": "    util_SendMesg(fd, LSSPROTO_S_SEND, buffer);",
+    "after": "    util_SendMesg(fd, LSSPROTO_S_SEND, buffer);\n    if (data[0] == 'P') stone_app_role_roster(fd);",
+    "reason": "Target 20260805 requires the authenticated role roster (2024/L) in addition to P slot 41. set_bc 0x531647 enables commands only when roster owner equals P slot. Handle checksummed 2025 roster requests and publish the native player identity with P snapshots."
+  },
+  {
+    "file": "gmsv/callfromcli.c",
+    "before": "#ifdef _NEW_PETST_RECV\n    int petindex = CHAR_getCharPet(charaindex,nPet);",
+    "after": "#ifdef _NEW_PETST_RECV\n    /* SDL sends legacy standby preferences after KS during login; these do\n     * not cancel battle/riding. Only the unified client uses PETST for both. */\n    if (CONNECT_getloginmark(fd) != 4) {\n    int petindex = CHAR_getCharPet(charaindex,nPet);",
+    "reason": "Real saved battle slot 0 became -1 after the target sent five PETST/96 initialization messages. SDL Config/savedata.cpp setUserSetting uses 0/1/4 standby preferences, while _NEW_PETST_RECV applies Unity 1/2/3 battle/riding semantics. Select the existing legacy branch for authenticated SDL/App profile 4. tests/pet_state.c reproduces the native state loss before this fix."
+  },
+  {
+    "file": "gmsv/callfromcli.c",
+    "before": "#else\n    for (i = 0; i < 5; i++)\n    {\n        if (CHAR_getWorkInt(charaindex, CHAR_WORK_PET0_STAT + i) == TRUE)",
+    "after": "    } else\n#endif\n    {\n    for (i = 0; i < 5; i++)\n    {\n        if (CHAR_getWorkInt(charaindex, CHAR_WORK_PET0_STAT + i) == TRUE)",
+    "reason": "Keep the original legacy standby rules, including the active pet's separate KS reply. Other client profiles retain the original unified branch."
+  },
+  {
+    "file": "gmsv/callfromcli.c",
+    "before": "        lssproto_PETS_send(fd, nPet, sPet);\n    }\n#endif\n\n}\n\n#ifdef _MIND_ICON",
+    "after": "        lssproto_PETS_send(fd, nPet, sPet);\n    }\n    }\n\n}\n\n#ifdef _MIND_ICON",
+    "reason": "Close the selected legacy PETST scope without changing native battle or riding logic."
+  },
+  {
+    "file": "gmsv/longzoro/sasql_linux.c",
+    "before": "            printf(\"sqlconfig.sql_PS  %s\\n\", sqlconfig.sql_PS);",
+    "after": "            /* Database credentials stay in the local configuration. */",
+    "reason": "Original SQL reconnection printed its configured database password during normal character login. Suppress that diagnostic while retaining connection outcome logs."
+  },
+  {
+    "file": "gmsv/net.c",
+    "before": "#include \"net.h\"",
+    "after": "#include \"net.h\"\n#include \"app_role.h\"",
+    "reason": "Native companion lifecycle hooks reuse existing Connect/SAAC/CHAR machinery."
+  },
+  {
+    "file": "gmsv/callfromac.c",
+    "before": "#include \"version.h\"",
+    "after": "#include \"version.h\"\n#include \"app_role.h\"",
+    "reason": "Native companion lifecycle hooks reuse existing Connect/SAAC/CHAR machinery."
+  },
+  {
+    "file": "gmsv/char/char.c",
+    "before": "#include \"version.h\"",
+    "after": "#include \"version.h\"\n#include \"app_role.h\"",
+    "reason": "Native companion lifecycle hooks reuse existing Connect/SAAC/CHAR machinery."
+  },
+  {
+    "file": "gmsv/autil.c",
+    "before": "#include \"wire_charset.h\"",
+    "after": "#include \"wire_charset.h\"\n#include \"app_role.h\"",
+    "reason": "Mark native companion sinks explicitly at the application wire boundary."
+  },
+  {
+    "file": "gmsv/autil.c",
+    "before": "void _util_SendMesg(char *file, int line, int fd, int func, char *buffer)\n{",
+    "after": "void _util_SendMesg(char *file, int line, int fd, int func, char *buffer)\n{\n    if (stone_app_virtual(fd)) return;",
+    "reason": "Unrouted companion messages must never enter the physical client stream or an eventfd write buffer."
+  },
+  {
+    "file": "gmsv/net.c",
+    "before": "SINGLETHREAD BOOL netloop_faster(void)\n{",
+    "after": "SINGLETHREAD BOOL netloop_faster(void)\n{\n    stone_app_tick();",
+    "reason": "Maintain native companion sessions and autosaves without synthetic network traffic."
+  },
+  {
+    "file": "gmsv/net.c",
+    "before": "        if (Connect[ fdremember ].use == FALSE)",
+    "after": "        if (stone_app_virtual(fdremember)) continue;\n        if (Connect[ fdremember ].use == FALSE)",
+    "reason": "Reserved companion descriptors are native contexts, not network sockets; exclude all socket select/read/write work."
+  },
+  {
+    "file": "gmsv/net.c",
+    "before": "        for (i = 0; i < ConnectLen; i++)\n        {\n            if ((Connect[ i ].use) && (i != acfd))",
+    "after": "        for (i = 0; i < ConnectLen; i++)\n        {\n            if (stone_app_virtual(i)) continue;\n            if ((Connect[ i ].use) && (i != acfd))",
+    "reason": "Client network keepalive deadlines do not apply to companions owned by a live primary session."
+  },
+  {
+    "file": "gmsv/net.c",
+    "before": "ANYTHREAD BOOL _CONNECT_endOne(char *file, int fromline, int sockfd, int line)\n{",
+    "after": "ANYTHREAD BOOL _CONNECT_endOne(char *file, int fromline, int sockfd, int line)\n{\n    if (stone_app_close(sockfd)) return TRUE;\n    stone_app_disconnect(sockfd);",
+    "reason": "Disconnect saves/unlocks real companions before releasing primary identity."
+  },
+  {
+    "file": "gmsv/net.c",
+    "before": "ANYTHREAD BOOL CONNECT_appendCAbuf(int fd, char* data, int size)\n{",
+    "after": "ANYTHREAD BOOL CONNECT_appendCAbuf(int fd, char* data, int size)\n{\n    if (stone_app_virtual(fd)) return TRUE;",
+    "reason": "Companions do not have a separate map-rendering client or buffered CA stream."
+  },
+  {
+    "file": "gmsv/callfromac.c",
+    "before": "    lssproto_CharList_send(clifd, result, data);",
+    "after": "    if (stone_app_list_reply(clifd, result, data)) return;\n    lssproto_CharList_send(clifd, result, data);",
+    "reason": "Use the native account-list response for owned role metadata and load sequencing."
+  },
+  {
+    "file": "gmsv/callfromac.c",
+    "before": "        CHAR_login(clifd, data, saveindex);",
+    "after": "        CHAR_login(clifd, data, saveindex);\n        stone_app_load_reply(clifd, result);",
+    "reason": "Publish only successfully loaded native roles; canceled owners trigger native logout/save."
+  },
+  {
+    "file": "gmsv/callfromac.c",
+    "before": "        CONNECT_setState(clifd, NOTLOGIN);\n    }\n}\n\nvoid saacproto_ACCharSave_recv",
+    "after": "        CONNECT_setState(clifd, NOTLOGIN);\n        stone_app_load_reply(clifd, result);\n    }\n}\n\nvoid saacproto_ACCharSave_recv",
+    "reason": "Failed companion loads remain offline and retryable."
+  },
+  {
+    "file": "gmsv/callfromac.c",
+    "before": "    fdid = CONNECT_getFdid(clifd);\n\n    switch (CONNECT_getState(clifd))",
+    "after": "    fdid = CONNECT_getFdid(clifd);\n    if (stone_app_save_reply(clifd, result)) return;\n\n    switch (CONNECT_getState(clifd))",
+    "reason": "Keep companion fdid until all ordered native save replies have arrived."
+  },
+  {
+    "file": "gmsv/char/char.c",
+    "before": "    battleindex = CHAR_getWorkInt(charindex, CHAR_WORKBATTLEINDEX);",
+    "after": "    stone_app_disconnect(clifd);\n    battleindex = CHAR_getWorkInt(charindex, CHAR_WORKBATTLEINDEX);",
+    "reason": "Explicit character logout also saves owned companions, even when TCP stays open."
+  },
+  {
+    "file": "gmsv/lssproto_serv.c",
+    "before": "void lssproto_S_send(int fd, char* data)\n{",
+    "after": "void lssproto_S_send(int fd, char* data)\n{\n    if (stone_app_status(fd, 2026, data)) return;",
+    "reason": "Target 2026/2027 publishes original native state in the owned role slot; only BP is routed from companion battle streams."
+  },
+  {
+    "file": "gmsv/lssproto_serv.c",
+    "before": "void lssproto_I_send(int fd, char* data)\n{",
+    "after": "void lssproto_I_send(int fd, char* data)\n{\n    if (stone_app_status(fd, 2027, data)) return;",
+    "reason": "Target 2026/2027 publishes original native state in the owned role slot; only BP is routed from companion battle streams."
+  },
+  {
+    "file": "gmsv/lssproto_serv.c",
+    "before": "void lssproto_B_send(int fd, char* command)\n{",
+    "after": "void lssproto_B_send(int fd, char* command)\n{\n    if (stone_app_status(fd, 0, command)) return;",
+    "reason": "Target 2026/2027 publishes original native state in the owned role slot; only BP is routed from companion battle streams."
+  },
+  {
+    "file": "gmsv/lssproto_serv.c",
+    "before": "void lssproto_KS_send(int fd, int petarray, int result)\n{",
+    "after": "void lssproto_KS_send(int fd, int petarray, int result)\n{\n    if (stone_app_pet_state(fd, 2015, petarray, result)) return;",
+    "reason": "Target 2015 -> 0x862d70 receives slot, battle pet, result. Keep 2018 PETST and 2019 standby semantics separate."
+  },
+  {
+    "file": "gmsv/lssproto_serv.c",
+    "before": "void lssproto_SPET_send(int fd, int standbypet, int result)\n{",
+    "after": "void lssproto_SPET_send(int fd, int standbypet, int result)\n{\n    if (stone_app_pet_state(fd, 2019, standbypet, result)) return;",
+    "reason": "Verified target slot-specific pet state protocol."
+  },
+  {
+    "file": "gmsv/callfromcli.c",
+    "before": "    PartyBattleCommandDispach(fd, rid, command);",
+    "after": "    if (!stone_app_battle_command(fd, rid, command))\n        PartyBattleCommandDispach(fd, rid, command);",
+    "reason": "App 2010 position is an owned real player: dispatch through that player's native fd, rejecting foreign battle actors."
+  },
+  {
+    "file": "gmsv/callfromcli.c",
+    "before": "    BattleEncountOut(fd_charaindex);",
+    "after": "    stone_app_battle_out(fd);\n    BattleEncountOut(fd_charaindex);",
+    "reason": "Primary EO completes only matching finished owned characters before native primary cleanup."
+  },
+  {
+    "file": "gmsv/char/char.c",
+    "before": "    CHAR_CharaDelete(charindex);\n    return ret;",
+    "after": "    stone_app_logged_out(clifd);\n    CHAR_CharaDelete(charindex);\n    return ret;",
+    "reason": "All native companion logout paths, including account kick, detach the soon-to-be-reused character index while retaining the save fdid."
+  },
+  {
+    "file": "saac/recv.c",
+    "before": "    charLoadCallback(ti, 0, id, pas, charname, buf, \"\", lock, mesgid);",
+    "after": "    /* Same-account controlled loading is a non-stealing lock acquisition.\n     * This check and charLoadCallback run synchronously in SAAC's event loop. */\n    if (!strcmp(opt, \"stone-control\") && isLocked(id)) {\n#ifdef _NewSave\n        saacproto_ACCharLoad_send(ti, FAILED, \"locked\", mesgid, -1);\n#else\n        saacproto_ACCharLoad_send(ti, FAILED, \"locked\", mesgid);\n#endif\n        return;\n    }\n    charLoadCallback(ti, 0, id, pas, charname, buf, \"\", lock, mesgid);",
+    "reason": "Controlled character loads fail atomically if already locked, preserving a separately logged-in client. Ordinary original client policy remains unchanged."
+  },
+  {
+    "file": "gmsv/char/char.c",
+    "before": "#include \"app_role.h\"",
+    "after": "#include \"app_role.h\"\n#include \"app_mail.h\"",
+    "reason": "Connect native system mail to authenticated character and native save events."
+  },
+  {
+    "file": "gmsv/callfromac.c",
+    "before": "#include \"app_role.h\"",
+    "after": "#include \"app_role.h\"\n#include \"app_mail.h\"",
+    "reason": "Connect native system mail to authenticated character and native save events."
+  },
+  {
+    "file": "gmsv/callfromcli.c",
+    "before": "#include \"version.h\"",
+    "after": "#include \"version.h\"\n#include \"app_role.h\"\n#include \"app_mail.h\"",
+    "reason": "Declare verified App role and mail entrypoints at the native receiver boundary."
+  },
+  {
+    "file": "gmsv/saacproto_cli.c",
+    "before": "#include \"saacproto_cli.h\"",
+    "after": "#include \"saacproto_cli.h\"\n#include \"app_role.h\"\n#include \"app_mail.h\"",
+    "reason": "Observe every actual character save before serialization."
+  },
+  {
+    "file": "gmsv/saacproto_cli.c",
+    "before": "    saacproto_CreateHeader(saacproto.work, \"ACCharSave\");",
+    "after": "    int native_fd = getfdFromFdid(mesgid);\n    stone_app_saving(native_fd);\n    stone_mail_saving(native_fd);\n    saacproto_CreateHeader(saacproto.work, \"ACCharSave\");",
+    "reason": "Count ordered save requests for companion cleanup and durable mail claims, including callers outside CHAR_charSaveFromConnect."
+  },
+  {
+    "file": "gmsv/callfromac.c",
+    "before": "    if (stone_app_save_reply(clifd, result)) return;",
+    "after": "    stone_mail_saved(clifd, result);\n    if (stone_app_save_reply(clifd, result)) return;",
+    "reason": "Mail observes the matching save acknowledgment before companion sessions may be released."
+  },
+  {
+    "file": "gmsv/char/char.c",
+    "before": "    return;\nDELETECHARDATA:",
+    "after": "    stone_mail_login(clifd);\n    return;\nDELETECHARDATA:",
+    "reason": "Send real owned system mails after successful native character initialization; reconcile persisted claim receipt."
+  },
+  {
+    "file": "gmsv/callfromcli.c",
+    "before": "    FreeMail(charaindex, flg);",
+    "after": "    if (CONNECT_getloginmark(fd) == 4) stone_mail_request(fd, flg);\n    else FreeMail(charaindex, flg);",
+    "reason": "App 804 claims the authenticated native character's mail by id, using the native inventory and save path."
+  },
+  {
+    "file": "gmsv/lssproto_serv.c",
+    "before": "        case LSSPROTO_MAIL_RECV:\n            {\n                int checksumrecv;\n                int checksum = 0;\n                int flg;\n                checksum += util_deint(fd, 2, &flg);\n                util_deint(fd, 3, &checksumrecv);\n#ifdef _DEBUG_RET_CLI\n                printf(\"[接收]LSSPROTO_PLAYEREXT_RECV:%d\\n\", flg);\n#endif\n#ifdef _ABSOLUTE_DEBUG\n                snprintf(errordata, sizeof(errordata) - 1, \"%d\", flg);\n#endif\n                lssproto_Mail_recv(fd, flg);\n                util_DiscardMessage();\n                funflg = 1;\n                break;\n            }\n",
+    "after": "        case LSSPROTO_MAIL_RECV:\n            {\n                int checksumrecv;\n                int checksum = 0;\n                int flg;\n                checksum += util_deint(fd, 2, &flg);\n                util_deint(fd, 3, &checksumrecv);\n                if (checksum != checksumrecv) {\n                    util_DiscardMessage();\n                    logHack(fd, HACK_CHECKSUMERROR);\n                    return -1;\n                }\n#ifdef _DEBUG_RET_CLI\n                printf(\"[接收]LSSPROTO_PLAYEREXT_RECV:%d\\n\", flg);\n#endif\n#ifdef _ABSOLUTE_DEBUG\n                snprintf(errordata, sizeof(errordata) - 1, \"%d\", flg);\n#endif\n                lssproto_Mail_recv(fd, flg);\n                util_DiscardMessage();\n                funflg = 1;\n                break;\n            }\n",
+    "reason": "Validate target 804 id checksum before a durable mail mutation."
+  },
+  {
+    "file": "gmsv/callfromcli.c",
+    "before": "    FreeSaMenu(charaindex, index);",
+    "after": "    if (!stone_mail_menu(fd, index)) FreeSaMenu(charaindex, index);",
+    "reason": "Target bottom mailbox calls 202/index118; open the authenticated Lua1026 view using native WN66."
+  },
+  {
+    "file": "gmsv/callfromcli.c",
+    "before": "void lssproto_WN_recv(int fd, int x, int y, int seqno,\n                      int objindex, int select, char* data)\n{\n    int fd_charaindex;\n    CHECKFDANDTIME;",
+    "after": "void lssproto_WN_recv(int fd, int x, int y, int seqno,\n                      int objindex, int select, char* data)\n{\n    int fd_charaindex;\n    CHECKFDANDTIME;\n    if (stone_mail_window(fd, seqno, objindex, select, data)) return;",
+    "reason": "Consume only reserved, authenticated mail window sequences before generic NPC routing; R/T/D use the current native character."
+  },
+  {
+    "file": "gmsv/lssproto_serv.c",
+    "before": "        case LSSPROTO_SAMENU_RECV:\n            {\n                int checksum = 0, checksumrecv;\n                int index;\n                checksum += util_deint(fd, 2, &index);\n                util_deint(fd, 3, &checksumrecv);",
+    "after": "        case LSSPROTO_SAMENU_RECV:\n            {\n                int checksum = 0, checksumrecv;\n                int index;\n                checksum += util_deint(fd, 2, &index);\n                util_deint(fd, 3, &checksumrecv);\n                if (checksum != checksumrecv) {\n                    util_DiscardMessage();\n                    logHack(fd, HACK_CHECKSUMERROR);\n                    return -1;\n                }",
+    "reason": "Validate the actual target202 menu integer checksum before opening the native mailbox."
+  },
+  {
+    "file": "gmsv/lssproto_serv.c",
+    "before": "                checksum += util_deint(fd, 6, &select);\n                checksum += util_destring(fd, 7, data);\n                util_deint(fd, 8, &checksumrecv);",
+    "after": "                checksum += util_deint(fd, 6, &select);\n                int data_checksum = util_destring(fd, 7, data);\n                if (data_checksum < 0) {\n                    util_DiscardMessage();\n                    logHack(fd, HACK_CHECKSUMERROR);\n                    return -1;\n                }\n                checksum += data_checksum;\n                util_deint(fd, 8, &checksumrecv);",
+    "reason": "Reject invalidly decoded WN67 text before checksum or authenticated mail/NPC action dispatch."
+  },
+  {
+    "file": "gmsv/char/char_talk.c",
+    "before": "static BOOL CHAR_Talk_check(int talkerindex, int talkedindex, int micflg)",
+    "after": "static BOOL stone_app_team_body(int fd, int index, char *body)\n{\n    /* Target netproc.cpp prepends /TM for the team channel. Preserve ordinary\n     * text and legacy clients; membership and audience remain native. */\n    if (CONNECT_getloginmark(fd) != 4 || !CHAR_getFlg(index, CHAR_ISPARTYCHAT) ||\n        CHAR_getWorkInt(index, CHAR_WORKPARTYMODE) == CHAR_PARTY_NONE ||\n        strncmp(body, \"/TM \", 4) != 0) return TRUE;\n    memmove(body, body + 4, strlen(body + 4) + 1);\n    return body[0] != 0;\n}\n\nstatic BOOL CHAR_Talk_check(int talkerindex, int talkedindex, int micflg)",
+    "reason": "Remove the verified App /TM channel marker only for actual team chat; retain the original party audience checks."
+  },
+  {
+    "file": "gmsv/char/char_talk.c",
+    "before": "    // Robin 0705 channel\n    if (messageeraseescape[0] == ':')\n    {\n        if ((channel == -1) && (quickchannel != -1))\n        {\n            channel = quickchannel;\n        }\n        else if (channel != -1)\n        {\n            channel = -1;\n        }\n    }\n",
+    "after": "    // Robin 0705 channel\n    if (messageeraseescape[0] == ':')\n    {\n        if ((channel == -1) && (quickchannel != -1))\n        {\n            channel = quickchannel;\n        }\n        else if (channel != -1)\n        {\n            channel = -1;\n        }\n    }\n\n\n    /* Strip the App channel marker only after commands and channel routing. */\n    if (!stone_app_team_body(fd, index, messageeraseescape)) return;",
+    "reason": "Keep the team body literal after Lua/GM/action and colon-channel interpretation; use ordinary native talk callbacks and suppress empty prefixed messages."
+  },
+  {
+    "file": "gmsv/callfromcli.c",
+    "before": "#include \"app_mail.h\"",
+    "after": "#include \"app_mail.h\"\n#include \"app_storage.h\"",
+    "reason": "Declare the independent four-storage module at the existing native authenticated/save boundary."
+  },
+  {
+    "file": "gmsv/callfromac.c",
+    "before": "#include \"app_mail.h\"",
+    "after": "#include \"app_mail.h\"\n#include \"app_storage.h\"",
+    "reason": "Declare the independent four-storage module at the existing native authenticated/save boundary."
+  },
+  {
+    "file": "gmsv/saacproto_cli.c",
+    "before": "#include \"app_mail.h\"",
+    "after": "#include \"app_mail.h\"\n#include \"app_storage.h\"",
+    "reason": "Declare the independent four-storage module at the existing native authenticated/save boundary."
+  },
+  {
+    "file": "gmsv/char/char.c",
+    "before": "#include \"app_mail.h\"",
+    "after": "#include \"app_mail.h\"\n#include \"app_storage.h\"",
+    "reason": "Declare the independent four-storage module at the existing native authenticated/save boundary."
+  },
+  {
+    "file": "gmsv/lssproto_serv.c",
+    "before": "#include \"app_role.h\"",
+    "after": "#include \"app_role.h\"\n#include \"app_storage.h\"",
+    "reason": "Declare target 821 personal-storage routing after the verified native checksum parser."
+  },
+  {
+    "file": "gmsv/callfromcli.c",
+    "before": "    if (stone_mail_window(fd, seqno, objindex, select, data)) return;",
+    "after": "    if (stone_mail_window(fd, seqno, objindex, select, data)) return;\n    if (stone_storage_window(fd, seqno, objindex, select, data)) return;",
+    "reason": "Dispatch issued 1124/1125 shared storage sequences before legacy NPC window handling; the module enforces authenticated identity and its exact sequence/object/select."
+  },
+  {
+    "file": "gmsv/callfromcli.c",
+    "before": "    if (!stone_mail_menu(fd, index)) FreeSaMenu(charaindex, index);",
+    "after": "    if (!stone_mail_menu(fd, index) && !stone_storage_menu(fd, index)) FreeSaMenu(charaindex, index);",
+    "reason": "Target settings and personal-view shared shortcuts send native 202 menu 35/36, absent in the legacy Lua menu."
+  },
+  {
+    "file": "gmsv/lssproto_serv.c",
+    "before": "                FreeNewSaMenu(fd, index, data);",
+    "after": "                if (!stone_storage_personal(fd, index, data)) FreeNewSaMenu(fd, index, data);",
+    "reason": "Handle target personal pet/item 821 index 1/2 with the complete native-object journal; consume refusals instead of falling back to legacy destructive SQL."
+  },
+  {
+    "file": "gmsv/saacproto_cli.c",
+    "before": "    stone_mail_saving(native_fd);",
+    "after": "    stone_mail_saving(native_fd);\n    stone_storage_saving(native_fd);",
+    "reason": "Count every ACCharSave send, including autosave and logout, by the fd resolved from its current fdid; exclude earlier snapshots when acknowledging storage movement."
+  },
+  {
+    "file": "gmsv/callfromac.c",
+    "before": "    stone_mail_saved(clifd, result);",
+    "after": "    stone_mail_saved(clifd, result);\n    stone_storage_saved(clifd, result);",
+    "reason": "Observe every ordered SAAC save acknowledgment before companion cleanup can return or release a native character."
+  },
+  {
+    "file": "gmsv/char/char.c",
+    "before": "    stone_mail_login(clifd);",
+    "after": "    stone_mail_login(clifd);\n    stone_storage_login(clifd);",
+    "reason": "Reconcile only a loaded native character receipt with its owned pending journal before allowing storage transfers."
+  },
+  {
+    "file": "gmsv/char/char.c",
+    "before": "    stone_app_disconnect(clifd);",
+    "after": "    stone_storage_logout(clifd);\n    stone_app_disconnect(clifd);",
+    "reason": "Close storage views on real logout, but retain the pending transaction and FIFO counters for the final save ACK."
+  },
+  {
+    "file": "gmsv/longzoro/sasql_linux.c",
+    "before": "int sasql_getVipPoint(int charaindex)\n{",
+    "after": "/* Read-only SQL identifier accessors for the native point-plan adapter. */\nconst char *stone_attributes_account_table(void) { return sqlconfig.sql_Table; }\nconst char *stone_attributes_account_key(void) { return sqlconfig.sql_NAME; }\n\nint sasql_getVipPoint(int charaindex)\n{",
+    "reason": "Use the configured native VipPoint account table and key without duplicating credentials or hardcoding account names."
+  },
+  {
+    "file": "gmsv/mylua/family_mylua.c",
+    "before": "static int LuaACShowTopFMList(lua_State *L)",
+    "after": "static int ShowFamilyListfromSaac(lua_State *L)\n{\n    (void)L;\n    saacproto_ACShowFMList_send(acfd);\n    return 0;\n}\n\nstatic int LuaACShowTopFMList(lua_State *L)",
+    "reason": "family.lua ShowFamilyList calls this missing binding before sending native window 1201. Refresh the existing SAAC family cache via its existing ACShowFMList protocol; no new family state or persistence implementation."
+  },
+  {
+    "file": "gmsv/mylua/family_mylua.c",
+    "before": "    { \"ShowFamilyListNum\", ShowFamilyListNum },",
+    "after": "    { \"ShowFamilyListNum\", ShowFamilyListNum },\n    { \"ShowFamilyListfromSaac\", ShowFamilyListfromSaac },",
+    "reason": "Expose the existing SAAC refresh operation under the exact function name required by original family.lua. Covered by the extracted native binding fixture and real family Lua."
+  },
+  {
+    "file": "gmsv/callfromcli.c",
+    "before": "#include \"app_storage.h\"",
+    "after": "#include \"app_storage.h\"\n#include \"app_attributes.h\"\n#include \"app_market.h\"\n#include \"app_features.h\"",
+    "reason": "Bind native feature lifecycle and mutation barriers to the authenticated connection."
+  },
+  {
+    "file": "gmsv/callfromac.c",
+    "before": "#include \"app_storage.h\"",
+    "after": "#include \"app_storage.h\"\n#include \"app_attributes.h\"\n#include \"app_market.h\"\n#include \"app_features.h\"",
+    "reason": "Bind native feature lifecycle and mutation barriers to the authenticated connection."
+  },
+  {
+    "file": "gmsv/saacproto_cli.c",
+    "before": "#include \"app_storage.h\"",
+    "after": "#include \"app_storage.h\"\n#include \"app_attributes.h\"\n#include \"app_market.h\"\n#include \"app_features.h\"",
+    "reason": "Bind native feature lifecycle and mutation barriers to the authenticated connection."
+  },
+  {
+    "file": "gmsv/char/char.c",
+    "before": "#include \"app_storage.h\"",
+    "after": "#include \"app_storage.h\"\n#include \"app_attributes.h\"\n#include \"app_market.h\"\n#include \"app_features.h\"",
+    "reason": "Bind native feature lifecycle and mutation barriers to the authenticated connection."
+  },
+  {
+    "file": "gmsv/lssproto_serv.c",
+    "before": "#include \"app_storage.h\"",
+    "after": "#include \"app_storage.h\"\n#include \"app_features.h\"",
+    "reason": "Gate ordinary point mutations while asset receipts await native persistence."
+  },
+  {
+    "file": "gmsv/callfromcli.c",
+    "before": "    if (stone_storage_window(fd, seqno, objindex, select, data)) return;",
+    "after": "    if (stone_storage_window(fd, seqno, objindex, select, data)) return;\n    if (stone_attributes_window(fd, seqno, objindex, select, data)) return;\n    if (stone_market_window(fd, seqno, objindex, select, data)) return;\n    if (stone_features_busy(fd)) return;",
+    "reason": "Route only issued feature window sequences; prevent ordinary NPC purchases and asset changes from overlapping pending receipts."
+  },
+  {
+    "file": "gmsv/callfromcli.c",
+    "before": "    if (!stone_mail_menu(fd, index) && !stone_storage_menu(fd, index)) FreeSaMenu(charaindex, index);",
+    "after": "    if (!stone_mail_menu(fd, index) && !stone_storage_menu(fd, index) &&\n        !stone_attributes_menu(fd, index) && !stone_market_menu(fd, index)) FreeSaMenu(charaindex, index);",
+    "reason": "Use the real target menus 122/130, and retain original native business for other entries."
+  },
+  {
+    "file": "gmsv/saacproto_cli.c",
+    "before": "    stone_storage_saving(native_fd);",
+    "after": "    stone_storage_saving(native_fd);\n    stone_attributes_saving(native_fd);\n    stone_market_saving(native_fd);",
+    "reason": "Count every real native save in each receipt FIFO, before transmission."
+  },
+  {
+    "file": "gmsv/callfromac.c",
+    "before": "    stone_storage_saved(clifd, result);",
+    "after": "    stone_storage_saved(clifd, result);\n    stone_attributes_saved(clifd, result);\n    stone_market_saved(clifd, result);",
+    "reason": "Observe actual SAAC results before companion cleanup can release the fd."
+  },
+  {
+    "file": "gmsv/char/char.c",
+    "before": "    stone_storage_login(clifd);",
+    "after": "    stone_storage_login(clifd);\n    stone_market_login(clifd);",
+    "reason": "Recover owned asset receipts from the loaded native character before new operations."
+  },
+  {
+    "file": "gmsv/char/char.c",
+    "before": "    stone_storage_logout(clifd);",
+    "after": "    stone_storage_logout(clifd);\n    stone_attributes_logout(clifd);\n    stone_market_logout(clifd);",
+    "reason": "Invalidate feature windows during real logout while keeping save FIFO acknowledgment context."
+  },
+  {
+    "file": "gmsv/callfromcli.c",
+    "before": "void lssproto_CharLogout_recv(int fd, int flg)\n{",
+    "after": "void lssproto_CharLogout_recv(int fd, int flg)\n{\n    if (stone_app_switch_logout(fd)) return;",
+    "reason": "Q handoff keeps original native characters/SAAC locks for authenticated reconnect instead of redirecting gameplay opcodes."
+  },
+  {
+    "file": "gmsv/callfromcli.c",
+    "before": "        char mac[128];\n        char mac2[128];\n        char mac3[128];",
+    "after": "        if (!stone_app_reconnect_ready(fd, i))\n        {\n            lssproto_CharLogin_send(fd, FAILED, \"角色正在保存或由其他主控操作，请稍后重试。\");\n            return;\n        }\n        char mac[128];\n        char mac2[128];\n        char mac3[128];",
+    "reason": "Refuse to rebind a controlled character with pending persistence or an active controller. Validate before changing native MAC/lock state."
+  },
+  {
+    "file": "gmsv/callfromcli.c",
+    "before": "#ifdef _PARTY_HIGH\n        lssproto_PartyHigh_send(fd, CHAR_getInt(i, CHAR_PARTYTYPE), CHAR_getChar(i, CHAR_PARTYOTHERNAME));\n#endif\n        return;",
+    "after": "#ifdef _PARTY_HIGH\n        lssproto_PartyHigh_send(fd, CHAR_getInt(i, CHAR_PARTYTYPE), CHAR_getChar(i, CHAR_PARTYOTHERNAME));\n#endif\n        stone_mail_login(fd);\n        stone_storage_login(fd);\n        stone_market_login(fd);\n        return;",
+    "reason": "A real native offline reconnect must recover the new current character feature state just like a disk login."
+  },
+  {
+    "file": "gmsv/callfromcli.c",
+    "before": "void lssproto_ID_recv(int fd, int x, int y, int haveitemindex, int toindex)\n{",
+    "after": "void lssproto_ID_recv(int fd, int x, int y, int haveitemindex, int toindex)\n{\n    if (stone_features_busy(fd)) return;",
+    "reason": "Do not move, consume or trade native assets/points while a durable feature receipt awaits its save acknowledgment."
+  },
+  {
+    "file": "gmsv/callfromcli.c",
+    "before": "void lssproto_MI_recv(int fd, int fromid, int toid)\n{",
+    "after": "void lssproto_MI_recv(int fd, int fromid, int toid)\n{\n    if (stone_features_busy(fd)) return;",
+    "reason": "Do not move, consume or trade native assets/points while a durable feature receipt awaits its save acknowledgment."
+  },
+  {
+    "file": "gmsv/callfromcli.c",
+    "before": "void lssproto_DI_recv(int fd, int x, int y, int itemindex)\n{",
+    "after": "void lssproto_DI_recv(int fd, int x, int y, int itemindex)\n{\n    if (stone_features_busy(fd)) return;",
+    "reason": "Do not move, consume or trade native assets/points while a durable feature receipt awaits its save acknowledgment."
+  },
+  {
+    "file": "gmsv/callfromcli.c",
+    "before": "void lssproto_DP_recv(int fd, int x, int y, int petindex)\n{",
+    "after": "void lssproto_DP_recv(int fd, int x, int y, int petindex)\n{\n    if (stone_features_busy(fd)) return;",
+    "reason": "Do not move, consume or trade native assets/points while a durable feature receipt awaits its save acknowledgment."
+  },
+  {
+    "file": "gmsv/callfromcli.c",
+    "before": "void lssproto_SKUP_recv(int fd, int skillid)\n{",
+    "after": "void lssproto_SKUP_recv(int fd, int skillid)\n{\n    if (stone_features_busy(fd)) return;",
+    "reason": "Do not move, consume or trade native assets/points while a durable feature receipt awaits its save acknowledgment."
+  },
+  {
+    "file": "gmsv/callfromcli.c",
+    "before": "void lssproto_TD_recv(int fd, char* message)\n{",
+    "after": "void lssproto_TD_recv(int fd, char* message)\n{\n    if (stone_features_busy(fd)) return;",
+    "reason": "Do not move, consume or trade native assets/points while a durable feature receipt awaits its save acknowledgment."
+  },
+  {
+    "file": "gmsv/lssproto_serv.c",
+    "before": "                if (!stone_storage_personal(fd, index, data)) FreeNewSaMenu(fd, index, data);",
+    "after": "                if (!stone_storage_personal(fd, index, data) && !stone_features_busy(fd)) FreeNewSaMenu(fd, index, data);",
+    "reason": "Preserve native 821 gameplay handlers after storage routing, with a cross-feature persistence barrier."
+  },
+  {
+    "file": "gmsv/net.c",
+    "before": "    if (stone_app_close(sockfd)) return TRUE;\n    stone_app_disconnect(sockfd);",
+    "after": "    if (stone_app_close(sockfd)) return TRUE;\n    stone_app_switch_logout(sockfd);\n    stone_app_disconnect(sockfd);",
+    "reason": "Only the interruptible network-close path may retain an armed Q handoff; generic CHAR_logout must finish its native save/delete lifecycle."
+  },
+  {
+    "id": "target-equipment-si-refresh",
+    "file": "gmsv/char/char_item.c",
+    "before": "static BOOL CHAR_sendSIToCli(int charindex, int from, int to)\n{\n    int fd = getfdFromCharaIndex(charindex);\n\n    if (fd != -1)\n    {\n        if (from == -1 && to == -1)\n        {\n            return FALSE;\n        }\n\n        lssproto_SI_send(fd, from, to);\n        return TRUE;\n    }\n\n    return FALSE;\n}\n",
+    "after": "static BOOL CHAR_sendSIToCli(int charindex, int from, int to)\n{\n    int fd = getfdFromCharaIndex(charindex);\n\n    if (fd != -1)\n    {\n        if (from == -1 && to == -1)\n        {\n            if (CONNECT_getloginmark(fd) == 4)\n            {\n                CHAR_sendStatusString(charindex, \"I\");\n            }\n            return FALSE;\n        }\n\n        lssproto_SI_send(fd, from, to);\n        if (CONNECT_getloginmark(fd) == 4)\n        {\n            /* Target SI omits item type/alchemy fields; I refreshes the full rows. */\n            int slots[2] = { from, to };\n            CHAR_sendItemData(charindex, slots, 2);\n        }\n        return TRUE;\n    }\n\n    return FALSE;\n}\n",
+    "reason": "Target 0x7f5800 SI omits type/alch; follow with authoritative two-slot I. Rejected target moves resync full I. Native slots remain 0..23."
+  },
+  {
+    "id": "native-npc-argument-path-bounds",
+    "file": "gmsv/npc/npcutil.c",
+    "before": "    char    opfile[32];\n    sprintf(opfile, \"%s/\", getNpcdir());\n    strcat(opfile, filename);\n    *buf = '\\0';\n#ifdef _CRYPTO_DATA\n    char realopfile[256];\n    BOOL crypto = FALSE;\n    sprintf(realopfile, \"%s.allblues\", opfile);",
+    "after": "    char    opfile[4096];\n    *buf = '\\0';\n    int pathlen = snprintf(opfile, sizeof(opfile), \"%s/%s\", getNpcdir(), filename);\n    if (pathlen < 0 || (size_t)pathlen >= sizeof(opfile)) return NULL;\n#ifdef _CRYPTO_DATA\n    char realopfile[sizeof(opfile) + sizeof(\".allblues\")];\n    BOOL crypto = FALSE;\n    snprintf(realopfile, sizeof(realopfile), \"%s.allblues\", opfile);",
+    "reason": "Startup GDB confirms NPC_Util_MargeStrFromArgFile overflows 32-byte opfile on shipped casino/petracepet1.arg. Bound complete paths and reject truncation; retain ordinary/encrypted resource behavior."
+  },
+  {
+    "id": "native-greeting-append-3989",
+    "file": "gmsv/net.c",
+    "before": "                    {\n                        strcat(mess, Connect[ sockfd ].defaultdeskey);\n#ifdef _NEW_NETSENDRECV\n                        sprintf(mess, \"%s%d\", mess, Connect[sockfd].connecttime);\n                        sprintf(Connect[sockfd].newdefaultkey, \"%s\", MD5String(mess));\n                        char funcnumbuff[6];\n",
+    "after": "                    {\n                        strcat(mess, Connect[ sockfd ].defaultdeskey);\n#ifdef _NEW_NETSENDRECV\n                        snprintf(mess + strlen(mess), sizeof(mess) - strlen(mess), \"%d\", Connect[sockfd].connecttime);\n                        sprintf(Connect[sockfd].newdefaultkey, \"%s\", MD5String(mess));\n                        char funcnumbuff[6];\n",
+    "reason": "Preserve native version/key when appending connection time. The overlapping sprintf discards the prefix under -O2/_FORTIFY_SOURCE, causing the unchanged client to reject the greeting as an old version."
+  },
+  {
+    "id": "native-greeting-append-4633",
+    "file": "gmsv/net.c",
+    "before": "                        head[0] = _sa_version_type;\n                        strcat(head, Connect[fdremember].defaultdeskey);\n#ifdef _NEW_NETSENDRECV\n                        sprintf(head, \"%s%d\", head, Connect[fdremember].connecttime);\n#endif\n                        //协议包  不管socket还是websocket连接上都会发送这个N包\n",
+    "after": "                        head[0] = _sa_version_type;\n                        strcat(head, Connect[fdremember].defaultdeskey);\n#ifdef _NEW_NETSENDRECV\n                        snprintf(head + strlen(head), sizeof(head) - strlen(head), \"%d\", Connect[fdremember].connecttime);\n#endif\n                        //协议包  不管socket还是websocket连接上都会发送这个N包\n",
+    "reason": "Preserve native version/key when appending connection time. The overlapping sprintf discards the prefix under -O2/_FORTIFY_SOURCE, causing the unchanged client to reject the greeting as an old version."
+  },
+  {
+    "id": "native-greeting-append-4646",
+    "file": "gmsv/net.c",
+    "before": "                        head[0] = _sa_version_type;\n                        strcat(head, Connect[fdremember].defaultdeskey);\n#ifdef _NEW_NETSENDRECV\n                        sprintf(head, \"%s%d\", head, Connect[fdremember].connecttime);\n#endif\n                        send(fdremember, head, strlen(head) + 1, 0);\n",
+    "after": "                        head[0] = _sa_version_type;\n                        strcat(head, Connect[fdremember].defaultdeskey);\n#ifdef _NEW_NETSENDRECV\n                        snprintf(head + strlen(head), sizeof(head) - strlen(head), \"%d\", Connect[fdremember].connecttime);\n#endif\n                        send(fdremember, head, strlen(head) + 1, 0);\n",
+    "reason": "Preserve native version/key when appending connection time. The overlapping sprintf discards the prefix under -O2/_FORTIFY_SOURCE, causing the unchanged client to reject the greeting as an old version."
+  },
+  {
+    "id": "native-greeting-append-4682",
+    "file": "gmsv/net.c",
+    "before": "\t\t\t\t\t\thead[0] = _sa_version_type;\n\t\t\t\t\t\tstrcat(head, Connect[fdremember].defaultdeskey);\n\t#ifdef _NEW_NETSENDRECV\n\t\t\t\t\t\tsprintf(head, \"%s%d\", head, Connect[fdremember].connecttime);\n\t#endif\n\t\t\t\t\t\tsend(fdremember, head, strlen(head) + 1, 0);\n",
+    "after": "\t\t\t\t\t\thead[0] = _sa_version_type;\n\t\t\t\t\t\tstrcat(head, Connect[fdremember].defaultdeskey);\n\t#ifdef _NEW_NETSENDRECV\n\t\t\t\t\t\tsnprintf(head + strlen(head), sizeof(head) - strlen(head), \"%d\", Connect[fdremember].connecttime);\n\t#endif\n\t\t\t\t\t\tsend(fdremember, head, strlen(head) + 1, 0);\n",
+    "reason": "Preserve native version/key when appending connection time. The overlapping sprintf discards the prefix under -O2/_FORTIFY_SOURCE, causing the unchanged client to reject the greeting as an old version."
+  },
+  {
+    "id": "target-q-original-logout-207",
+    "file": "gmsv/callfromcli.c",
+    "before": "void lssproto_NEWLOGOUT2_recv(int fd, int flg)\n{\n    if (flg == 213)\n    {\n        int charaindex = CONNECT_getCharaindex(fd);",
+    "after": "void lssproto_NEWLOGOUT2_recv(int fd, int flg)\n{\n    if (flg == 213)\n    {\n        if (stone_app_switch_logout(fd)) return;\n        int charaindex = CONNECT_getCharaindex(fd);",
+    "reason": "Real target Q sends NEWLOGOUT2 207/213 after Q acknowledgment. Route armed handoff before ordinary CHAR_logout, retaining all native companions and party; unarmed normal logout unchanged."
+  },
+  {
+    "id": "target-status-before-shared-buffer",
+    "file": "gmsv/char/char.c",
+    "before": "    string = CHAR_makeStatusString(charaindex, category);\n\n    if (string != \"\\0\")",
+    "after": "    /* Resolving a newly adopted controller can emit N party updates through\n     * the shared status buffer. Finish it before composing this status. */\n    int status_fd = getfdFromCharaIndex(charaindex);\n    if (CONNECT_checkfd(status_fd) && CONNECT_getloginmark(status_fd) == 4)\n        stone_app_primary_slot(status_fd);\n    string = CHAR_makeStatusString(charaindex, category);\n\n    if (string != \"\\0\")",
+    "reason": "Q adoption clears reconnect mode and emits native N updates. Resolve controller before building C/P in the shared serializer buffer, preventing an N update from corrupting first P and leaving the target role slot -1."
+  },
+  {
+    "id": "target-q-companion-snapshots",
+    "file": "gmsv/callfromcli.c",
+    "before": "        stone_mail_login(fd);\n        stone_storage_login(fd);\n        stone_market_login(fd);\n        return;",
+    "after": "        stone_mail_login(fd);\n        stone_storage_login(fd);\n        stone_market_login(fd);\n        stone_app_refresh_companions(fd);\n        return;",
+    "reason": "The target resets all controlled role caches during Q login. Reconnected native objects need their authoritative P/I/K/W snapshots just as freshly loaded companions do."
+  },
+  {
+    "id": "native-item-status-append-1",
+    "file": "gmsv/item/item.c",
+    "before": "#endif // _ITEM_SHOWCUSTEM\n#ifdef _ITEM_SYSTEM\n    if(CONNECT_getloginmark(CHAR_getWorkInt(charaindex, CHAR_WORKFD)) != 4 && FreeJudgePlayer(charaindex) == 1){\n    \tsprintf(ITEM_itemStatusStringBuffer, \"%s|\", ITEM_itemStatusStringBuffer);\n    }\n#endif // _ITEM_SYSTEM\n    return ITEM_itemStatusStringBuffer;",
+    "after": "#endif // _ITEM_SHOWCUSTEM\n#ifdef _ITEM_SYSTEM\n    if(CONNECT_getloginmark(CHAR_getWorkInt(charaindex, CHAR_WORKFD)) != 4 && FreeJudgePlayer(charaindex) == 1){\n    \tsnprintf(ITEM_itemStatusStringBuffer + strlen(ITEM_itemStatusStringBuffer), sizeof(ITEM_itemStatusStringBuffer) - strlen(ITEM_itemStatusStringBuffer), \"|\");\n    }\n#endif // _ITEM_SYSTEM\n    return ITEM_itemStatusStringBuffer;",
+    "reason": "Real optimized build empties the client inventory: overlapping sprintf drops previous item fields. Append at the bounded string end in occupied, empty and numbered serializers; preserve target field layout."
+  },
+  {
+    "id": "native-item-status-append-2",
+    "file": "gmsv/item/item.c",
+    "before": "    }\n\n#endif // _SEND_ITEM_TYPE\n#ifdef _ITEM_SHOWCUSTEM\n    sprintf(ITEM_itemStatusStringBuffer, \"%s||||\", ITEM_itemStatusStringBuffer);\n#endif // _ITEM_SHOWCUSTEM\n#ifdef _ITEM_SYSTEM\n    if(CONNECT_getloginmark(CHAR_getWorkInt(charaindex, CHAR_WORKFD)) != 4 && FreeJudgePlayer(charaindex) == 1){\n    \tsnprintf(ITEM_itemStatusStringBuffer + strlen(ITEM_itemStatusStringBuffer), sizeof(ITEM_itemStatusStringBuffer) - strlen(ITEM_itemStatusStringBuffer), \"|\");",
+    "after": "    }\n\n#endif // _SEND_ITEM_TYPE\n#ifdef _ITEM_SHOWCUSTEM\n    snprintf(ITEM_itemStatusStringBuffer + strlen(ITEM_itemStatusStringBuffer), sizeof(ITEM_itemStatusStringBuffer) - strlen(ITEM_itemStatusStringBuffer), \"||||\");\n#endif // _ITEM_SHOWCUSTEM\n#ifdef _ITEM_SYSTEM\n    if(CONNECT_getloginmark(CHAR_getWorkInt(charaindex, CHAR_WORKFD)) != 4 && FreeJudgePlayer(charaindex) == 1){\n    \tsnprintf(ITEM_itemStatusStringBuffer + strlen(ITEM_itemStatusStringBuffer), sizeof(ITEM_itemStatusStringBuffer) - strlen(ITEM_itemStatusStringBuffer), \"|\");",
+    "reason": "Real optimized build empties the client inventory: overlapping sprintf drops previous item fields. Append at the bounded string end in occupied, empty and numbered serializers; preserve target field layout."
+  },
+  {
+    "id": "native-item-status-append-3",
+    "file": "gmsv/item/item.c",
+    "before": "#endif\n#ifdef _SEND_ITEM_TYPE\n\n    if (CONNECT_getloginmark(CHAR_getWorkInt(charaindex, CHAR_WORKFD)) == 2 || CONNECT_getloginmark(CHAR_getWorkInt(charaindex, CHAR_WORKFD)) == 4)\n    {\n        sprintf(ITEM_itemStatusStringBuffer, \"%s|\", ITEM_itemStatusStringBuffer);\n    }\n\n#endif // _SEND_ITEM_TYPE\n#ifdef _ITEM_SHOWCUSTEM\n    snprintf(ITEM_itemStatusStringBuffer + strlen(ITEM_itemStatusStringBuffer), sizeof(ITEM_itemStatusStringBuffer) - strlen(ITEM_itemStatusStringBuffer), \"||||\");",
+    "after": "#endif\n#ifdef _SEND_ITEM_TYPE\n\n    if (CONNECT_getloginmark(CHAR_getWorkInt(charaindex, CHAR_WORKFD)) == 2 || CONNECT_getloginmark(CHAR_getWorkInt(charaindex, CHAR_WORKFD)) == 4)\n    {\n        snprintf(ITEM_itemStatusStringBuffer + strlen(ITEM_itemStatusStringBuffer), sizeof(ITEM_itemStatusStringBuffer) - strlen(ITEM_itemStatusStringBuffer), \"|\");\n    }\n\n#endif // _SEND_ITEM_TYPE\n#ifdef _ITEM_SHOWCUSTEM\n    snprintf(ITEM_itemStatusStringBuffer + strlen(ITEM_itemStatusStringBuffer), sizeof(ITEM_itemStatusStringBuffer) - strlen(ITEM_itemStatusStringBuffer), \"||||\");",
+    "reason": "Real optimized build empties the client inventory: overlapping sprintf drops previous item fields. Append at the bounded string end in occupied, empty and numbered serializers; preserve target field layout."
+  },
+  {
+    "id": "native-item-status-append-4",
+    "file": "gmsv/item/item.c",
+    "before": "    \tsprintf(ITEM_itemStatusStringBuffer, \"%s|\", ITEM_itemStatusStringBuffer);",
+    "after": "    \tsnprintf(ITEM_itemStatusStringBuffer + strlen(ITEM_itemStatusStringBuffer), sizeof(ITEM_itemStatusStringBuffer) - strlen(ITEM_itemStatusStringBuffer), \"|\");",
+    "reason": "Real optimized build empties the client inventory: overlapping sprintf drops previous item fields. Append at the bounded string end in occupied, empty and numbered serializers; preserve target field layout."
+  },
+  {
+    "id": "native-item-status-append-5",
+    "file": "gmsv/item/item.c",
+    "before": "    sprintf(ITEM_itemStatusStringBuffer, \"%s||||\", ITEM_itemStatusStringBuffer);",
+    "after": "    snprintf(ITEM_itemStatusStringBuffer + strlen(ITEM_itemStatusStringBuffer), sizeof(ITEM_itemStatusStringBuffer) - strlen(ITEM_itemStatusStringBuffer), \"||||\");",
+    "reason": "Real optimized build empties the client inventory: overlapping sprintf drops previous item fields. Append at the bounded string end in occupied, empty and numbered serializers; preserve target field layout."
+  },
+  {
+    "id": "native-item-status-append-6",
+    "file": "gmsv/item/item.c",
+    "before": "        sprintf(ITEM_itemStatusStringBuffer, \"%s|\", ITEM_itemStatusStringBuffer);",
+    "after": "        snprintf(ITEM_itemStatusStringBuffer + strlen(ITEM_itemStatusStringBuffer), sizeof(ITEM_itemStatusStringBuffer) - strlen(ITEM_itemStatusStringBuffer), \"|\");",
+    "reason": "Real optimized build empties the client inventory: overlapping sprintf drops previous item fields. Append at the bounded string end in occupied, empty and numbered serializers; preserve target field layout."
+  },
+  {
+    "id": "native-item-status-append-7",
+    "file": "gmsv/item/item.c",
+    "before": "    sprintf(ITEM_itemStatusStringBuffer, \"%s|\", ITEM_itemStatusStringBuffer);",
+    "after": "    snprintf(ITEM_itemStatusStringBuffer + strlen(ITEM_itemStatusStringBuffer), sizeof(ITEM_itemStatusStringBuffer) - strlen(ITEM_itemStatusStringBuffer), \"|\");",
+    "reason": "Real optimized build empties the client inventory: overlapping sprintf drops previous item fields. Append at the bounded string end in occupied, empty and numbered serializers; preserve target field layout."
+  },
+  {
+    "id": "native-item-status-append-8",
+    "file": "gmsv/item/item.c",
+    "before": "    \tsprintf(ITEM_itemStatusStringBuffer, \"%s|%d\", ITEM_itemStatusStringBuffer, FreeGetItemStar(itemindex));",
+    "after": "    \tsnprintf(ITEM_itemStatusStringBuffer + strlen(ITEM_itemStatusStringBuffer), sizeof(ITEM_itemStatusStringBuffer) - strlen(ITEM_itemStatusStringBuffer), \"|%d\", FreeGetItemStar(itemindex));",
+    "reason": "Real optimized build empties the client inventory: overlapping sprintf drops previous item fields. Append at the bounded string end in occupied, empty and numbered serializers; preserve target field layout."
+  },
+  {
+    "id": "native-item-status-append-9",
+    "file": "gmsv/item/item.c",
+    "before": "    sprintf(ITEM_itemStatusStringBuffer, \"%s|%d\", ITEM_itemStatusStringBuffer, canuse);",
+    "after": "    snprintf(ITEM_itemStatusStringBuffer + strlen(ITEM_itemStatusStringBuffer), sizeof(ITEM_itemStatusStringBuffer) - strlen(ITEM_itemStatusStringBuffer), \"|%d\", canuse);",
+    "reason": "Real optimized build empties the client inventory: overlapping sprintf drops previous item fields. Append at the bounded string end in occupied, empty and numbered serializers; preserve target field layout."
+  },
+  {
+    "id": "native-item-status-append-10",
+    "file": "gmsv/item/item.c",
+    "before": "    sprintf(ITEM_itemStatusStringBuffer, \"%s|%s\", ITEM_itemStatusStringBuffer, ITEM_getChar(itemindex, ITEM_INLAYCODE));",
+    "after": "    snprintf(ITEM_itemStatusStringBuffer + strlen(ITEM_itemStatusStringBuffer), sizeof(ITEM_itemStatusStringBuffer) - strlen(ITEM_itemStatusStringBuffer), \"|%s\", ITEM_getChar(itemindex, ITEM_INLAYCODE));",
+    "reason": "Real optimized build empties the client inventory: overlapping sprintf drops previous item fields. Append at the bounded string end in occupied, empty and numbered serializers; preserve target field layout."
+  },
+  {
+    "id": "native-item-status-append-11",
+    "file": "gmsv/item/item.c",
+    "before": "    sprintf(ITEM_itemStatusStringBuffer, \"%s|%s\", ITEM_itemStatusStringBuffer, ITEM_getChar(itemindex, ITEM_TYPECODE));",
+    "after": "    snprintf(ITEM_itemStatusStringBuffer + strlen(ITEM_itemStatusStringBuffer), sizeof(ITEM_itemStatusStringBuffer) - strlen(ITEM_itemStatusStringBuffer), \"|%s\", ITEM_getChar(itemindex, ITEM_TYPECODE));",
+    "reason": "Real optimized build empties the client inventory: overlapping sprintf drops previous item fields. Append at the bounded string end in occupied, empty and numbered serializers; preserve target field layout."
+  },
+  {
+    "id": "native-item-status-append-12",
+    "file": "gmsv/item/item.c",
+    "before": "    sprintf(ITEM_itemStatusStringBuffer, \"%s|%s\", ITEM_itemStatusStringBuffer, Mname);",
+    "after": "    snprintf(ITEM_itemStatusStringBuffer + strlen(ITEM_itemStatusStringBuffer), sizeof(ITEM_itemStatusStringBuffer) - strlen(ITEM_itemStatusStringBuffer), \"|%s\", Mname);",
+    "reason": "Real optimized build empties the client inventory: overlapping sprintf drops previous item fields. Append at the bounded string end in occupied, empty and numbered serializers; preserve target field layout."
+  },
+  {
+    "id": "native-item-status-append-13",
+    "file": "gmsv/item/item.c",
+    "before": "    sprintf(ITEM_itemStatusStringBuffer, \"%s|%d\", ITEM_itemStatusStringBuffer, ITEM_getInt(itemindex, ITEM_LOCKED));",
+    "after": "    snprintf(ITEM_itemStatusStringBuffer + strlen(ITEM_itemStatusStringBuffer), sizeof(ITEM_itemStatusStringBuffer) - strlen(ITEM_itemStatusStringBuffer), \"|%d\", ITEM_getInt(itemindex, ITEM_LOCKED));",
+    "reason": "Real optimized build empties the client inventory: overlapping sprintf drops previous item fields. Append at the bounded string end in occupied, empty and numbered serializers; preserve target field layout."
+  },
+  {
+    "id": "native-item-status-append-14",
+    "file": "gmsv/item/item.c",
+    "before": "            }\n\n            sprintf(ITEM_itemStatusStringBuffer, \"%s|%d\", ITEM_itemStatusStringBuffer, itemtype);\n        }\n",
+    "after": "            }\n\n            snprintf(ITEM_itemStatusStringBuffer + strlen(ITEM_itemStatusStringBuffer), sizeof(ITEM_itemStatusStringBuffer) - strlen(ITEM_itemStatusStringBuffer), \"|%d\", itemtype);\n        }\n",
+    "reason": "Real optimized build empties the client inventory: overlapping sprintf drops previous item fields. Append at the bounded string end in occupied, empty and numbered serializers; preserve target field layout."
+  },
+  {
+    "id": "native-item-status-append-15",
+    "file": "gmsv/item/item.c",
+    "before": "            sprintf(ITEM_itemStatusStringBuffer, \"%s|%d\", ITEM_itemStatusStringBuffer, itemtype);",
+    "after": "            snprintf(ITEM_itemStatusStringBuffer + strlen(ITEM_itemStatusStringBuffer), sizeof(ITEM_itemStatusStringBuffer) - strlen(ITEM_itemStatusStringBuffer), \"|%d\", itemtype);",
+    "reason": "Real optimized build empties the client inventory: overlapping sprintf drops previous item fields. Append at the bounded string end in occupied, empty and numbered serializers; preserve target field layout."
+  },
+  {
+    "id": "native-saac-save-heap-buffers",
+    "file": "saac/char.c",
+    "before": "static int makeSaveCharString(char *out, int outlen,\r\n                              char *nm, char *opt, char *info)\r\n{\r\n    char nmwork[CHARDATASIZE];\r\n    char optwork[CHARDATASIZE];\r\n    char infowork[CHARDATASIZE];\r\n    char outwork[CHARDATASIZE];\r\n    char *nmwork_p, *optwork_p, *infowork_p;\r\n    int l;\r\n    strncpy(nmwork, nm, sizeof(nmwork));\r\n    nmwork[strlen(nm)] = 0;\r\n    strncpy(optwork, opt, sizeof(optwork));\r\n    optwork[strlen(opt)] = 0;\r\n    strncpy(infowork, info, sizeof(infowork));\r\n    infowork[strlen(info)] = 0;\r\n    /*    if ( esc ) {\r\n    nmwork_p = makeEscapeString1( nm , nmwork ,sizeof( nmwork ));\r\n    optwork_p = makeEscapeString1( opt , optwork , sizeof( optwork ));\r\n    infowork_p = makeEscapeString1( info , infowork , sizeof( infowork ));\r\n    } else {*/\r\n    nmwork_p = makeEscapeString(nm, nmwork, sizeof(nmwork));\r\n    optwork_p = makeEscapeString(opt, optwork, sizeof(optwork));\r\n    infowork_p = makeEscapeString(info, infowork, sizeof(infowork));\r\n    //    }\r\n    snprintf(outwork, sizeof(outwork),\r\n             \"%s\" SPACESTRING \"%s\" SPACESTRING \"%s\",\r\n             nmwork_p, optwork_p, infowork_p);\r\n    l = strlen(outwork);\r\n\r\n    if (l >= (outlen - 1))\r\n    {\r\n        return -1;\r\n    }\r\n\r\n    memcpy(out, outwork, l + 1);\r\n    return 0;\r\n}\r\n",
+    "after": "static int makeSaveCharString(char *out, int outlen,\r\n                              char *nm, char *opt, char *info)\r\n{\r\n    /* Inlined into charSave at -O2: the former four 1MB arrays remained on\r\n     * its stack while new-character lookup added another 2MB frame. */\r\n    char *input[3] = {nm, opt, info};\r\n    char *work[3] = {NULL, NULL, NULL};\r\n    size_t lengths[3], raw_length = 2; /* two field separators */\r\n    int result = -1;\r\n    if (!out || outlen < 3 || !nm || !opt || !info) return -1;\r\n    out[0] = '\\0';\r\n    for (int i = 0; i < 3; ++i)\r\n    {\r\n        lengths[i] = strnlen(input[i], CHARDATASIZE);\r\n        if (lengths[i] >= CHARDATASIZE ||\r\n            lengths[i] > (size_t)(outlen - 1) - raw_length) return -1;\r\n        raw_length += lengths[i];\r\n    }\r\n    for (int i = 0; i < 3; ++i)\r\n    {\r\n        /* Every native escape expands one byte to at most two bytes. */\r\n        size_t capacity = 2 * lengths[i] + 1;\r\n        work[i] = malloc(capacity);\r\n        if (!work[i] || !makeEscapeString(input[i], work[i], (int)capacity)) goto done;\r\n    }\r\n    int written = snprintf(out, outlen, \"%s\" SPACESTRING \"%s\" SPACESTRING \"%s\",\r\n                           work[0], work[1], work[2]);\r\n    if (written >= 0 && written < outlen) result = 0;\r\n    else out[0] = '\\0'; /* never publish a truncated character snapshot */\r\ndone:\r\n    for (int i = 0; i < 3; ++i) free(work[i]);\r\n    return result;\r\n}\r\n",
+    "reason": "Original-client character creation SIGSEGVs in getCharIndexByName: optimized charSave inlines 4MB save scratch, stacking with native receive and lookup buffers beyond 8MB. Allocate bounded escape scratch on the heap, free all paths, and reject truncated snapshots without changing escape format or stack protections."
+  },
+  {
+    "id": "native-saac-backtrace-declaration",
+    "file": "saac/main.c",
+    "before": "#include <signal.h>\r\n",
+    "after": "#include <signal.h>\r\n#include <execinfo.h>\r\n",
+    "reason": "SAAC backtrace_symbols had no declaration, so the optimized 64-bit build truncated its pointer and crashed in its own diagnostic path. Keep the proper libc prototype."
+  },
+  {
+    "id": "native-saac-normal-sigterm-save",
+    "file": "saac/main.c",
+    "before": "void sigshutdown(int number)\r\n{\r\n    char buff[256];\r\n\r\n    if (number == 0)\r\n    {\r\n        printf(\"\\n\\n\\nGMSV正常关闭\\n\");\r\n    }\r\n    else if (number == 2)\r\n    {\r\n        printf(\"\\n\\n\\nGMSV被CTRL+C手动中断\\n\");\r\n    }\r\n    else\r\n    {\r\n        sprintf(buff, \"以下是主要错误，必须向我们提交的错误\\n\");\r\n        logerr(buff);\r\n        dump();\r\n    }\r\n\r\n    signal(SIGINT, SIG_IGN);\r\n    signal(SIGQUIT, SIG_IGN);\r\n    signal(SIGILL,  SIG_IGN);\r\n    signal(SIGTRAP, SIG_IGN);\r\n    signal(SIGIOT,  SIG_IGN);\r\n    signal(SIGBUS,  SIG_IGN);\r\n    signal(SIGFPE,  SIG_IGN);\r\n    signal(SIGKILL, SIG_IGN);\r\n    signal(SIGSEGV, SIG_IGN);\r\n    signal(SIGPIPE, SIG_IGN);\r\n    signal(SIGTERM, SIG_IGN);\r\n    log(\"得到一个信号! 异常中断......\\n\");\r\n    writeFamily(familydir);\r\n    writeFMPoint(fmpointdir);\r\n    writeFMSMemo(fmsmemodir);\r\n    exit(1);\r\n}\r\n\r\n\r\n\r",
+    "after": "void sigshutdown(int number)\r\n{\r\n    char buff[256];\r\n\r\n    int normal = number == 0 || number == SIGTERM || number == SIGINT;\r\n\r\n    if (number == 0 || number == SIGTERM)\r\n    {\r\n        printf(\"\\n\\n\\nSAAC正常关闭\\n\");\r\n    }\r\n    else if (number == 2)\r\n    {\r\n        printf(\"\\n\\n\\nSAAC被CTRL+C手动中断\\n\");\r\n    }\r\n    else\r\n    {\r\n        sprintf(buff, \"以下是主要错误，必须向我们提交的错误\\n\");\r\n        logerr(buff);\r\n        dump();\r\n    }\r\n\r\n    signal(SIGINT, SIG_IGN);\r\n    signal(SIGQUIT, SIG_IGN);\r\n    signal(SIGILL,  SIG_IGN);\r\n    signal(SIGTRAP, SIG_IGN);\r\n    signal(SIGIOT,  SIG_IGN);\r\n    signal(SIGBUS,  SIG_IGN);\r\n    signal(SIGFPE,  SIG_IGN);\r\n    signal(SIGKILL, SIG_IGN);\r\n    signal(SIGSEGV, SIG_IGN);\r\n    signal(SIGPIPE, SIG_IGN);\r\n    signal(SIGTERM, SIG_IGN);\r\n    if (!normal) log(\"得到一个信号! 异常中断......\\n\");\r\n    writeFamily(familydir);\r\n    writeFMPoint(fmpointdir);\r\n    writeFMSMemo(fmsmemodir);\r\n    if (normal) log(\"SAAC正常停止，家族、据点和备忘资料已保存\\n\");\r\n    exit(normal ? 0 : 1);\r\n}\r\n\r\n\r\n\r",
+    "reason": "The project stop entry sends SIGTERM. Treat normal termination as a successful stop, reach native family/point/memo writes, and avoid the crash-only backtrace path; retain abnormal-signal diagnostics and failure exit status."
+  },
+  {
+    "id": "native-gmsv-normal-sigterm-save",
+    "file": "gmsv/msignal.c",
+    "before": "void sigshutdown(int number)\n{\n    char buff[1024 * 64];\n#ifdef _UPDATESERVERPLAY_\n    sasql_updateServerStatus(0);\n#endif\n\n    if (number == 0)\n    {\n        printf(\"\\n\\n\\nGMSV正常关闭\\n\");\n        sasql_online(NULL, NULL, NULL, NULL, NULL, NULL, 3);\n    }\n    else if (number == 2)\n    {\n#ifdef _KEEP_UP_NO_LOGIN\n\n        if (strlen(keepupnologin) > 0)\n        {\n            strcpy(keepupnologin, \"\");\n            printf(\"已解除禁止登陆状态\\n\");\n            return;\n        }\n\n#endif\n        sasql_online(NULL, NULL, NULL, NULL, NULL, NULL, 3);\n        printf(\"\\n\\n\\nGMSV被CTRL+C手动中断\\n\");\n    }\n    else\n    {\n#ifdef _AUTO_DUMP_\n        char cmd[50];\n        sprintf(cmd, \"gcore %u\", getpid());\n        system(cmd);\n#endif\n        sasql_online(NULL, NULL, NULL, NULL, NULL, NULL, 3);\n        sprintf(buff, \"\\n=========以下是服务器出错原因=========\\n\");\n        logerr(buff);\n        sprintf(buff, \"标准信息: %d\\n\", number);\n        logerr(buff);\n#ifdef _GMSV_DEBUG\n        sprintf(buff, \"主 函 数: %s\\n\", DebugMainFunction);\n        logerr(buff);\n#endif\n        sprintf(buff, \"在线人数: %d\\n\", player_online);\n        logerr(buff);\n        sprintf(buff, \"最高在线: %d\\n\", player_maxonline);\n        logerr(buff);\n        sprintf(buff, \"SAAC接收: %s\\n\", saacretfunc);\n        logerr(buff);\n        sprintf(buff, \"SAAC发送: %s\\n\", saacsendfunc);\n        logerr(buff);\n        sprintf(buff, \"cli 接收: %d\\n\", cliretfunc);\n        logerr(buff);\n        sprintf(buff, \"cli 发送: %d\\n\", clisendfunc);\n        logerr(buff);\n#ifdef _ABSOLUTE_DEBUG\n        sprintf(buff, \"错误接收数据: %s\\n\", errordata);\n        logerr(buff);\n        sprintf(buff, \"错误账号: %s\\n\", charId);\n        logerr(buff);\n        sprintf(buff, \"最后执行: %d\\n\", lastfunctime);\n        logerr(buff);\n        sprintf(buff, \"调试行数: %d\\n\", debugline);\n        logerr(buff);\n        sprintf(buff, \"COM 接口: %d\\n\", comnum);\n        logerr(buff);\n        sprintf(buff, \"当前版本: %s\\n\", SERVER_VERSION);\n        logerr(buff);\n#endif\n        sprintf(buff, \"以下是主要错误，必须向我们提交的错误\\n\");\n        logerr(buff);\n        dump();\n        sprintf(buff, \"=========以上是服务器出错原因=========\\n\");\n        logerr(buff);\n    }\n\n    if (number == 0 || number == 2)\n    {\n        printf(\"在线人数: %d\\n\", player_online);\n        printf(\"最高在线: %d\\n\", player_maxonline);\n        printf(\"当前版本: %s\\n\", SERVER_VERSION);\n    }\n\n#ifdef _GMSV_DEBUG\n    {\n        time_t new_t;\n        int dd, hh, mm, ss;\n        char buf[128];\n        time(&new_t);\n\n        if (initTime == 0)\n        {\n            printf(\"运行时间: 尚未初始化完\\n\");\n        }\n        else\n        {\n            new_t -= initTime;\n            dd = (int) new_t / 86400;\n            new_t = new_t % 86400;\n            hh = (int) new_t / 3600;\n            new_t = new_t % 3600;\n            mm = (int) new_t / 60;\n            new_t = new_t % 60;\n            ss = (int) new_t;\n\n            if (dd > 0)\n            {\n                snprintf(buf, sizeof(buf), \"服务器共运行了 %d 日 %d 小时 %d 分 %d 秒。\", dd, hh, mm, ss);\n            }\n            else if (hh > 0)\n            {\n                snprintf(buf, sizeof(buf), \"服务器共运行了 %d 小时 %d 分 %d 秒。\", hh, mm, ss);\n            }\n            else\n            {\n                snprintf(buf, sizeof(buf), \"服务器共运行了 %d 分 %d 秒。\", mm, ss);\n            }\n\n            if (number == 0 || number == 2)\n            {\n                printf(\"运行时间: %s\\n\", buf);\n            }\n            else\n            {\n                sprintf(buff, \"运行时间: %s\\n\", buf);\n                logerr(buff);\n            }\n        }\n    }\n#endif\n    remove(\"gmsvlog.err2\");\n    rename(\"gmsvlog.err1\", \"gmsvlog.err2\");\n    rename(\"gmsvlog.err\", \"gmsvlog.err1\");\n    rename(\"gmsvlog\", \"gmsvlog.err\");\n    allDataDump();\n    signal(SIGINT, SIG_IGN);\n    signal(SIGQUIT, SIG_IGN);\n    signal(SIGILL,  SIG_IGN);\n    signal(SIGTRAP, SIG_IGN);\n    signal(SIGIOT,  SIG_IGN);\n    signal(SIGBUS,  SIG_IGN);\n    signal(SIGFPE,  SIG_IGN);\n    signal(SIGKILL, SIG_IGN);\n    signal(SIGSEGV, SIG_IGN);\n    signal(SIGPIPE, SIG_IGN);\n    signal(SIGTERM, SIG_IGN);\n    shutdownProgram();\n    exit(number);\n}\n\n\n\n",
+    "after": "void sigshutdown(int number)\n{\n    char buff[1024 * 64];\r\n    int normal = number == 0 || number == SIGTERM || number == SIGINT;\n#ifdef _UPDATESERVERPLAY_\n    sasql_updateServerStatus(0);\n#endif\n\n    if (number == 0 || number == SIGTERM)\n    {\n        printf(\"\\n\\n\\nGMSV正常关闭\\n\");\n        sasql_online(NULL, NULL, NULL, NULL, NULL, NULL, 3);\n    }\n    else if (number == 2)\n    {\n#ifdef _KEEP_UP_NO_LOGIN\n\n        if (strlen(keepupnologin) > 0)\n        {\n            strcpy(keepupnologin, \"\");\n            printf(\"已解除禁止登陆状态\\n\");\n            return;\n        }\n\n#endif\n        sasql_online(NULL, NULL, NULL, NULL, NULL, NULL, 3);\n        printf(\"\\n\\n\\nGMSV被CTRL+C手动中断\\n\");\n    }\n    else\n    {\n#ifdef _AUTO_DUMP_\n        char cmd[50];\n        sprintf(cmd, \"gcore %u\", getpid());\n        system(cmd);\n#endif\n        sasql_online(NULL, NULL, NULL, NULL, NULL, NULL, 3);\n        sprintf(buff, \"\\n=========以下是服务器出错原因=========\\n\");\n        logerr(buff);\n        sprintf(buff, \"标准信息: %d\\n\", number);\n        logerr(buff);\n#ifdef _GMSV_DEBUG\n        sprintf(buff, \"主 函 数: %s\\n\", DebugMainFunction);\n        logerr(buff);\n#endif\n        sprintf(buff, \"在线人数: %d\\n\", player_online);\n        logerr(buff);\n        sprintf(buff, \"最高在线: %d\\n\", player_maxonline);\n        logerr(buff);\n        sprintf(buff, \"SAAC接收: %s\\n\", saacretfunc);\n        logerr(buff);\n        sprintf(buff, \"SAAC发送: %s\\n\", saacsendfunc);\n        logerr(buff);\n        sprintf(buff, \"cli 接收: %d\\n\", cliretfunc);\n        logerr(buff);\n        sprintf(buff, \"cli 发送: %d\\n\", clisendfunc);\n        logerr(buff);\n#ifdef _ABSOLUTE_DEBUG\n        sprintf(buff, \"错误接收数据: %s\\n\", errordata);\n        logerr(buff);\n        sprintf(buff, \"错误账号: %s\\n\", charId);\n        logerr(buff);\n        sprintf(buff, \"最后执行: %d\\n\", lastfunctime);\n        logerr(buff);\n        sprintf(buff, \"调试行数: %d\\n\", debugline);\n        logerr(buff);\n        sprintf(buff, \"COM 接口: %d\\n\", comnum);\n        logerr(buff);\n        sprintf(buff, \"当前版本: %s\\n\", SERVER_VERSION);\n        logerr(buff);\n#endif\n        sprintf(buff, \"以下是主要错误，必须向我们提交的错误\\n\");\n        logerr(buff);\n        dump();\n        sprintf(buff, \"=========以上是服务器出错原因=========\\n\");\n        logerr(buff);\n    }\n\n    if (normal)\n    {\n        printf(\"在线人数: %d\\n\", player_online);\n        printf(\"最高在线: %d\\n\", player_maxonline);\n        printf(\"当前版本: %s\\n\", SERVER_VERSION);\n    }\n\n#ifdef _GMSV_DEBUG\n    {\n        time_t new_t;\n        int dd, hh, mm, ss;\n        char buf[128];\n        time(&new_t);\n\n        if (initTime == 0)\n        {\n            printf(\"运行时间: 尚未初始化完\\n\");\n        }\n        else\n        {\n            new_t -= initTime;\n            dd = (int) new_t / 86400;\n            new_t = new_t % 86400;\n            hh = (int) new_t / 3600;\n            new_t = new_t % 3600;\n            mm = (int) new_t / 60;\n            new_t = new_t % 60;\n            ss = (int) new_t;\n\n            if (dd > 0)\n            {\n                snprintf(buf, sizeof(buf), \"服务器共运行了 %d 日 %d 小时 %d 分 %d 秒。\", dd, hh, mm, ss);\n            }\n            else if (hh > 0)\n            {\n                snprintf(buf, sizeof(buf), \"服务器共运行了 %d 小时 %d 分 %d 秒。\", hh, mm, ss);\n            }\n            else\n            {\n                snprintf(buf, sizeof(buf), \"服务器共运行了 %d 分 %d 秒。\", mm, ss);\n            }\n\n            if (normal)\n            {\n                printf(\"运行时间: %s\\n\", buf);\n            }\n            else\n            {\n                sprintf(buff, \"运行时间: %s\\n\", buf);\n                logerr(buff);\n            }\n        }\n    }\n#endif\n    remove(\"gmsvlog.err2\");\n    rename(\"gmsvlog.err1\", \"gmsvlog.err2\");\n    rename(\"gmsvlog.err\", \"gmsvlog.err1\");\n    rename(\"gmsvlog\", \"gmsvlog.err\");\n    allDataDump();\n    signal(SIGINT, SIG_IGN);\n    signal(SIGQUIT, SIG_IGN);\n    signal(SIGILL,  SIG_IGN);\n    signal(SIGTRAP, SIG_IGN);\n    signal(SIGIOT,  SIG_IGN);\n    signal(SIGBUS,  SIG_IGN);\n    signal(SIGFPE,  SIG_IGN);\n    signal(SIGKILL, SIG_IGN);\n    signal(SIGSEGV, SIG_IGN);\n    signal(SIGPIPE, SIG_IGN);\n    signal(SIGTERM, SIG_IGN);\n    shutdownProgram();\n    if (normal) printf(\"GMSV正常停止，原生数据保存和连接关闭已完成\\n\");\r\n    exit(normal ? 0 : number);\n}\n\n\n\n",
+    "reason": "Real project SIGTERM completed character saving but entered crash diagnostics and returned 15. Classify project/manual termination correctly while retaining allDataDump, shutdownProgram, abnormal status, and the existing SIGINT login-pause resume branch."
+  },
+  {
+    "id": "native-pet-zero-elder-roundtrip",
+    "file": "gmsv/char/char_base.c",
+    "before": "        //简化宠物存档字串\n        if (CHAR_getInt(petindex, i) == 0)",
+    "after": "        /* New pets deliberately have LASTTALKELDER=0; the legacy parser\n         * defaults an absent lte to -1. Preserve that zero in native saves. */\n        if (CHAR_getInt(petindex, i) == 0 && i != CHAR_LASTTALKELDER)",
+    "reason": "Actual freshly opened pet cannot pass storage's serialize/decode equality: native writer drops lte:0, parser restores default -1. Emit this meaningful zero without changing old-save defaults, pet stats, skills, UID or storage equality checks. Real serializer/parser regression reproduces zero corruption and covers zero/negative/positive values and legacy saves."
+  },
+  {
+    "id": "native-created-pet-no-world-object",
+    "file": "gmsv/char/pet.c",
+    "before": "int PET_initCharOneArray(Char *ch)\n{\n    int i;",
+    "after": "int PET_initCharOneArray(Char *ch)\n{\n    /* A new native pet has no world object. The world/mail/follow loaders\n     * assign their allocated object only after this character factory. */\n    ch->workint[CHAR_WORKOBJINDEX] = -1;\n    int i;",
+    "reason": "Real original-client pet-box use creates pets through AddPet -> ENEMY_createPet -> PET_initCharOneArray with zeroed work fields. Object slot zero is valid, so storage/market falsely reject these inventory pets as outside. Initialize the common factory sentinel, preserve attributes/UID/skills/equipment and mail/fusion callbacks; world loaders assign real objects afterward. Actual factory regression first failed, then passed."
+  },
+  {
+    "id": "native-loaded-pet-no-world-object",
+    "file": "gmsv/char/char_base.c",
+    "before": "    memset(ch, 0, sizeof(Char));\n    CHAR_getDefaultChar(ch, 31010);\n\n    if (strstr(src, \"name:\") == NULL",
+    "after": "    memset(ch, 0, sizeof(Char));\n    CHAR_getDefaultChar(ch, 31010);\n    /* A deserialized pet has no map object until its world loader creates one.\n     * CHAR_getDefaultChar zeroes work fields; zero is a valid object slot. */\n    ch->workint[CHAR_WORKOBJINDEX] = -1;\n\n    if (strstr(src, \"name:\") == NULL",
+    "reason": "Real saved inventory pets have object index zero after loading, so storage/market mistake them for outside pets. Initialize the transient sentinel after default initialization; world object restore assigns its actual allocated index afterward. Persisted attributes, UID, skills, equipment and mail mode remain untouched."
+  },
+  {
+    "id": "native-three-page-inventory-capacity",
+    "file": "gmsv/include/char_base.h",
+    "before": "#define CHAR_MAXITEMNUM  15",
+    "after": "#define CHAR_MAXITEMNUM  45",
+    "reason": "The verified target has nine equipment slots and three pages of fifteen bag slots (S/I limit 54, itemwnd page starts 9/24/39). Native free-slot, move, purchase and save/load loops must cover slots 9..53; preserve existing numbered item records and initialize additional slots empty."
+  },
+  {
+    "id": "native-three-page-item-update-buffer",
+    "file": "gmsv/char/char_item.c",
+    "before": "static char CHAR_sendItemBuffer[STRINGBUFSIZ];",
+    "after": "static char CHAR_sendItemBuffer[STRINGBUFSIZ + CHAR_MAXITEMHAVE * 512];",
+    "reason": "Keep all 54 complete native inventory rows, including empty positions and rich fields. The former 4096-byte aggregate truncated legitimate multi-page updates. Bound storage by the existing per-row 512-byte limit; encoded packets remain within the native 65500-byte sender."
+  },
+  {
+    "id": "native-three-page-full-inventory-buffer",
+    "file": "gmsv/char/char.c",
+    "before": "static char CHAR_statusSendBuffer[STRINGBUFSIZ];",
+    "after": "static char CHAR_statusSendBuffer[STRINGBUFSIZ + CHAR_MAXITEMHAVE * 512];",
+    "reason": "Keep all 54 complete native inventory rows, including empty positions and rich fields. The former 4096-byte aggregate truncated legitimate multi-page updates. Bound storage by the existing per-row 512-byte limit; encoded packets remain within the native 65500-byte sender."
+  },
+  {
+    "id": "native-family-fee-after-validation",
+    "file": "gmsv/char/family.c",
+    "before": "    else\n    {\n        CHAR_setInt(meindex, CHAR_GOLD, gold - 10000);\n        CHAR_send_P_StatusString(meindex, CHAR_P_STRING_GOLD);\n    }\n\n    if (getStringFromIndexWithDelim(message, \"|\", 2, token,",
+    "after": "\n    if (getStringFromIndexWithDelim(message, \"|\", 2, token,",
+    "reason": "Actual FAMILY_Add rejects invalid names, absent guardian pets or badges only after charging. Defer its unchanged 10000-stone charge until all native input validation succeeds."
+  },
+  {
+    "id": "native-family-charge-valid-request",
+    "file": "gmsv/char/family.c",
+    "before": "#endif // _FAMILY_QQ\n    sprintf(charname, \"%s\", CHAR_getChar(meindex, CHAR_NAME));",
+    "after": "#endif // _FAMILY_QQ\n    /* Charge only after all native creation fields have been validated. */\n    CHAR_setInt(meindex, CHAR_GOLD, gold - 10000);\n    CHAR_send_P_StatusString(meindex, CHAR_P_STRING_GOLD);\n    sprintf(charname, \"%s\", CHAR_getChar(meindex, CHAR_NAME));",
+    "reason": "Keep native level/adult/stone requirements, family state and SAAC creation protocol. Valid submissions charge once before the normal asynchronous creation request."
+  },
+  {
+    "id": "native-family-refund-full-creation-fee",
+    "file": "gmsv/char/family.c",
+    "before": "        CHAR_setInt(meindex, CHAR_GOLD, gold + 100);\n        CHAR_send_P_StatusString(meindex, CHAR_P_STRING_GOLD);\n        SetFMVarInit(meindex);",
+    "after": "        /* SAAC refusal returns the full fee charged by FAMILY_Add. */\n        CHAR_setInt(meindex, CHAR_GOLD, gold + 10000);\n        CHAR_send_P_StatusString(meindex, CHAR_P_STRING_GOLD);\n        SetFMVarInit(meindex);",
+    "reason": "Actual duplicate-name/refused ACAddFM response refunded only 100 of the 10000-stone creation fee. Restore the matching full charge while retaining native refusal and state cleanup."
+  },
+  {
+    "id": "native-family-keep-metadata-bindings",
+    "file": "gmsv/include/longzoro/version.h",
+    "before": "#ifdef _NEW_515SA\n\t#undef  _FAMILY_QQ  //家族QQ",
+    "after": "#ifdef _NEW_515SA\n\t/* Keep _FAMILY_QQ: native family Lua reads the metadata sent by SAAC. */",
+    "reason": "Original-client creation succeeds, but My Family fails at ShowFmSprite because _NEW_515SA undefines all native metadata bindings. SAAC already enables _FAMILY_QQ and sends these trailing metadata fields. Preserve the existing definition, cache fields, protocol parsing and Lua registrations together."
+  },
+  {
+    "id": "native-family-list-preserve-row",
+    "file": "saac/acfamily.c",
+    "before": "            sprintf(msg, \"%s|\", msg);\n            strcat(data, msg);\n        }\n    }\n\n    return   fmnownum;",
+    "after": "            /* Append without overlapping the existing family row. */\n            snprintf(msg + strlen(msg), sizeof(msg) - strlen(msg), \"|\");\n            strcat(data, msg);\n        }\n    }\n\n    return   fmnownum;",
+    "reason": "Real family list has count 1 but data only '|': optimized SAAC overlapping sprintf erases the row. Preserve the native fields and delimiter while appending at the bounded buffer end; real optimized native serializer regression covers empty, single and sparse multiple families."
+  },
+  {
+    "id": "native-direct-trade-item-capacity-contract",
+    "file": "gmsv/char/trade.c",
+    "before": "BOOL TRADE_HandleItem(int meindex, int showindex, char *message, char *outmess);",
+    "after": "BOOL TRADE_HandleItem(int meindex, int showindex, char *message, char *outmess, size_t outsize);",
+    "reason": "Two actual clients: offered item name disappears on receiver. Native TRADE_HandleItem overlap erases the prefix under O2/FORTIFY. Pass actual caller capacity, preserve the native base/custom fields by appending at the end, and reject truncation before sending. Optimized actual formatter regression covers system/non-system branches and both bounds."
+  },
+  {
+    "id": "native-direct-trade-item-pass-capacity",
+    "file": "gmsv/char/trade.c",
+    "before": "TRADE_HandleItem(meindex, showindex, message, buf1) == FALSE",
+    "after": "TRADE_HandleItem(meindex, showindex, message, buf1, sizeof(buf1)) == FALSE",
+    "reason": "Two actual clients: offered item name disappears on receiver. Native TRADE_HandleItem overlap erases the prefix under O2/FORTIFY. Pass actual caller capacity, preserve the native base/custom fields by appending at the end, and reject truncation before sending. Optimized actual formatter regression covers system/non-system branches and both bounds."
+  },
+  {
+    "id": "native-direct-trade-item-preserve-payload",
+    "file": "gmsv/char/trade.c",
+    "before": "BOOL TRADE_HandleItem(int meindex, int showindex, char *message, char *outmess)\n{\n    char token[256];\n    int item, itemindex;\n    int fd = getfdFromCharaIndex(meindex);\n\n    if (CONNECT_get_confirm(fd) == TRUE)\n    {\n        return FALSE;\n    }\n\n    if (CHAR_getWorkInt(meindex, CHAR_WORKTRADEMODE) != CHAR_TRADE_TRADING\n            || CHAR_getWorkInt(meindex, CHAR_WORKTRADEMODE) == CHAR_TRADE_LOCK)\n    {\n        return FALSE;\n    }\n\n    if (getStringFromIndexWithDelim(message, \"|\", 6, token, sizeof(token)) == FALSE)\n    {\n        return FALSE;\n    }\n\n    item = atoi(token);\n\n    if (item < CHAR_STARTITEMARRAY  || item > CHAR_MAXITEMHAVE)\n    {\n        return FALSE;\n    }\n\n    itemindex = CHAR_getItemIndex(meindex, item);\n\n    if (!ITEM_CHECKINDEX(itemindex))\n    {\n        return FALSE;\n    }\n\n    {\n        char itemname[256], tmpbuf[256], tmpbuf1[256];\n#ifdef _ITEM_PILEFORTRADE\n        int nums = 0;\n\n        if (getStringFromIndexWithDelim(message, \"|\", 7, token, sizeof(token)) == TRUE)\n        {\n            nums = atoi(token);\n        }\n\n        if (TRADE_addSomeTradeList(meindex, item, &nums, TRADE_ITEM) == FALSE)\n        {\n            return FALSE;\n        }\n\n#endif\n        strcpy(itemname, ITEM_getChar(itemindex, ITEM_SECRETNAME)); //ITEM_NAME\n        char *arg = ITEM_getChar(itemindex, ITEM_NAME);\n\n        if (arg[0] == '*' || ITEM_getInt(itemindex, ITEM_VANISHATDROP) == 1)\n        {\n            sprintf(token, \"绑定物品\");\n        }\n        else\n        {\n            sprintf(token, \"耐久度：无限\");\n        }\n\n#ifdef _TAKE_ITEMDAMAGE\n        int crushe  = ITEM_getItemDamageCrusheED(itemindex);\n\n        if (arg[0] == '*' || ITEM_getInt(itemindex, ITEM_VANISHATDROP) == 1)\n        {\n            if (crushe >= 0)\n            {\n                snprintf(token, sizeof(token), \"绑定物品 %d%%\", crushe);\n            }\n            else\n            {\n                snprintf(token, sizeof(token), \"%s\", \"绑定物品\");\n            }\n        }\n        else\n        {\n            if (crushe >= 0)\n            {\n                snprintf(token, sizeof(token), \"耐久度：%d%%\", crushe);\n            }\n            else\n            {\n                snprintf(token, sizeof(token), \"%s\", \"耐久度：无限\");\n            }\n        }\n\n#endif\n        int itemtype = 0;\n\n        if (ITEM_getInt(itemindex, ITEM_TYPE) == 16 ||\n                ITEM_getInt(itemindex, ITEM_TYPE) == 20 ||\n                ITEM_getInt(itemindex, ITEM_TYPE) == 21 ||\n                ITEM_getInt(itemindex, ITEM_TYPE) == 22 ||\n                ITEM_getInt(itemindex, ITEM_TYPE) == 23)\n        {\n            if (strlen(ITEM_getChar(itemindex, ITEM_USEFUNC)) > 0)\n            {\n                itemtype = 2;\n            }\n        }\n        else\n        {\n            itemtype = 1;\n        }\n\n#ifdef _ITEM_PILENUMS\n        sprintf(outmess, \"%d|%s|%s|%s|%d|%s|%d|%d\",\n#else\n        sprintf(outmess, \"%d|%s|%s|%d|%s|%d\",\n#endif\n                ITEM_getInt(itemindex, ITEM_BASEIMAGENUMBER),\n                makeEscapeString(ITEM_getChar(itemindex, ITEM_NAME), tmpbuf1, sizeof(tmpbuf1)),\n#ifdef _ITEM_PILENUMS\n                makeEscapeString(itemname, tmpbuf, sizeof(tmpbuf)),\n#endif\n                FreeShowItemEffect(itemindex), item, token\n#ifdef _ITEM_PILEFORTRADE\n                , nums\n#endif\n                , itemtype\n               );\n#ifdef _ITEM_SHOWCUSTEM\n        char Mname[64];\n        memset(Mname, 0, sizeof(Mname));\n\n        if (ITEM_getInt(itemindex, ITEM_MAGICID) > 0)       //取得魔法名称\n        {\n            int marray = MAGIC_getMagicArray(ITEM_getInt(itemindex, ITEM_MAGICID));\n\n            if (marray != -1)\n            {\n                if (MAGIC_getChar(marray, MAGIC_NAME) != NULL)\n                {\n                    sprintf(Mname, \"%s\", MAGIC_getChar(marray, MAGIC_NAME));\n                }\n            }\n        }\n#ifdef _ITEM_SYSTEM\n        if(FreeJudgePlayer(meindex) == 1){\n\t\t\t\tsprintf(outmess, \"%s|%s|%s|%s|%d|%d|%d\", outmess, Mname, ITEM_getChar(itemindex, ITEM_TYPECODE), ITEM_getChar(itemindex, ITEM_INLAYCODE)\n                , ITEM_getInt(itemindex, ITEM_NEEDTRANS), ITEM_getInt(itemindex, ITEM_LEVEL),FreeGetItemStar(itemindex));\n        } else {\n            sprintf(outmess, \"%s|%s|%s|%s|%d|%d\", outmess, Mname, ITEM_getChar(itemindex, ITEM_TYPECODE), ITEM_getChar(itemindex, ITEM_INLAYCODE)\n                    , ITEM_getInt(itemindex, ITEM_NEEDTRANS), ITEM_getInt(itemindex, ITEM_LEVEL));\n        }\n#else\n        sprintf(outmess, \"%s|%s|%s|%s|%d|%d\", outmess, Mname, ITEM_getChar(itemindex, ITEM_TYPECODE), ITEM_getChar(itemindex, ITEM_INLAYCODE)\n                , ITEM_getInt(itemindex, ITEM_NEEDTRANS), ITEM_getInt(itemindex, ITEM_LEVEL));\n#endif\n#endif\n    }\n\n    return TRUE;\n}\n",
+    "after": "BOOL TRADE_HandleItem(int meindex, int showindex, char *message, char *outmess, size_t outsize)\n{\n    if (!outmess || !outsize) return FALSE;\n    char token[256];\n    int item, itemindex;\n    int fd = getfdFromCharaIndex(meindex);\n\n    if (CONNECT_get_confirm(fd) == TRUE)\n    {\n        return FALSE;\n    }\n\n    if (CHAR_getWorkInt(meindex, CHAR_WORKTRADEMODE) != CHAR_TRADE_TRADING\n            || CHAR_getWorkInt(meindex, CHAR_WORKTRADEMODE) == CHAR_TRADE_LOCK)\n    {\n        return FALSE;\n    }\n\n    if (getStringFromIndexWithDelim(message, \"|\", 6, token, sizeof(token)) == FALSE)\n    {\n        return FALSE;\n    }\n\n    item = atoi(token);\n\n    if (item < CHAR_STARTITEMARRAY  || item > CHAR_MAXITEMHAVE)\n    {\n        return FALSE;\n    }\n\n    itemindex = CHAR_getItemIndex(meindex, item);\n\n    if (!ITEM_CHECKINDEX(itemindex))\n    {\n        return FALSE;\n    }\n\n    {\n        char itemname[256], tmpbuf[256], tmpbuf1[256];\n#ifdef _ITEM_PILEFORTRADE\n        int nums = 0;\n\n        if (getStringFromIndexWithDelim(message, \"|\", 7, token, sizeof(token)) == TRUE)\n        {\n            nums = atoi(token);\n        }\n\n        if (TRADE_addSomeTradeList(meindex, item, &nums, TRADE_ITEM) == FALSE)\n        {\n            return FALSE;\n        }\n\n#endif\n        strcpy(itemname, ITEM_getChar(itemindex, ITEM_SECRETNAME)); //ITEM_NAME\n        char *arg = ITEM_getChar(itemindex, ITEM_NAME);\n\n        if (arg[0] == '*' || ITEM_getInt(itemindex, ITEM_VANISHATDROP) == 1)\n        {\n            sprintf(token, \"绑定物品\");\n        }\n        else\n        {\n            sprintf(token, \"耐久度：无限\");\n        }\n\n#ifdef _TAKE_ITEMDAMAGE\n        int crushe  = ITEM_getItemDamageCrusheED(itemindex);\n\n        if (arg[0] == '*' || ITEM_getInt(itemindex, ITEM_VANISHATDROP) == 1)\n        {\n            if (crushe >= 0)\n            {\n                snprintf(token, sizeof(token), \"绑定物品 %d%%\", crushe);\n            }\n            else\n            {\n                snprintf(token, sizeof(token), \"%s\", \"绑定物品\");\n            }\n        }\n        else\n        {\n            if (crushe >= 0)\n            {\n                snprintf(token, sizeof(token), \"耐久度：%d%%\", crushe);\n            }\n            else\n            {\n                snprintf(token, sizeof(token), \"%s\", \"耐久度：无限\");\n            }\n        }\n\n#endif\n        int itemtype = 0;\n\n        if (ITEM_getInt(itemindex, ITEM_TYPE) == 16 ||\n                ITEM_getInt(itemindex, ITEM_TYPE) == 20 ||\n                ITEM_getInt(itemindex, ITEM_TYPE) == 21 ||\n                ITEM_getInt(itemindex, ITEM_TYPE) == 22 ||\n                ITEM_getInt(itemindex, ITEM_TYPE) == 23)\n        {\n            if (strlen(ITEM_getChar(itemindex, ITEM_USEFUNC)) > 0)\n            {\n                itemtype = 2;\n            }\n        }\n        else\n        {\n            itemtype = 1;\n        }\n\n        int written;\n#ifdef _ITEM_PILENUMS\n        written = snprintf(outmess, outsize, \"%d|%s|%s|%s|%d|%s|%d|%d\",\n#else\n        written = snprintf(outmess, outsize, \"%d|%s|%s|%d|%s|%d\",\n#endif\n                ITEM_getInt(itemindex, ITEM_BASEIMAGENUMBER),\n                makeEscapeString(ITEM_getChar(itemindex, ITEM_NAME), tmpbuf1, sizeof(tmpbuf1)),\n#ifdef _ITEM_PILENUMS\n                makeEscapeString(itemname, tmpbuf, sizeof(tmpbuf)),\n#endif\n                FreeShowItemEffect(itemindex), item, token\n#ifdef _ITEM_PILEFORTRADE\n                , nums\n#endif\n                , itemtype\n               );\n        if (written < 0 || (size_t)written >= outsize) return FALSE;\n#ifdef _ITEM_SHOWCUSTEM\n        char Mname[64];\n        memset(Mname, 0, sizeof(Mname));\n\n        if (ITEM_getInt(itemindex, ITEM_MAGICID) > 0)       //取得魔法名称\n        {\n            int marray = MAGIC_getMagicArray(ITEM_getInt(itemindex, ITEM_MAGICID));\n\n            if (marray != -1)\n            {\n                if (MAGIC_getChar(marray, MAGIC_NAME) != NULL)\n                {\n                    sprintf(Mname, \"%s\", MAGIC_getChar(marray, MAGIC_NAME));\n                }\n            }\n        }\n        /* Preserve the item prefix when appending target detail fields. */\n        size_t used = strlen(outmess);\n#ifdef _ITEM_SYSTEM\n        if(FreeJudgePlayer(meindex) == 1){\n\t\t\t\twritten = snprintf(outmess + used, outsize - used, \"|%s|%s|%s|%d|%d|%d\", Mname, ITEM_getChar(itemindex, ITEM_TYPECODE), ITEM_getChar(itemindex, ITEM_INLAYCODE)\n                , ITEM_getInt(itemindex, ITEM_NEEDTRANS), ITEM_getInt(itemindex, ITEM_LEVEL),FreeGetItemStar(itemindex));\n        } else {\n            written = snprintf(outmess + used, outsize - used, \"|%s|%s|%s|%d|%d\", Mname, ITEM_getChar(itemindex, ITEM_TYPECODE), ITEM_getChar(itemindex, ITEM_INLAYCODE)\n                    , ITEM_getInt(itemindex, ITEM_NEEDTRANS), ITEM_getInt(itemindex, ITEM_LEVEL));\n        }\n#else\n        written = snprintf(outmess + used, outsize - used, \"|%s|%s|%s|%d|%d\", Mname, ITEM_getChar(itemindex, ITEM_TYPECODE), ITEM_getChar(itemindex, ITEM_INLAYCODE)\n                , ITEM_getInt(itemindex, ITEM_NEEDTRANS), ITEM_getInt(itemindex, ITEM_LEVEL));\n#endif\n        if (written < 0 || (size_t)written >= outsize - used) return FALSE;\n#endif\n    }\n\n    return TRUE;\n}\n",
+    "reason": "Two actual clients: offered item name disappears on receiver. Native TRADE_HandleItem overlap erases the prefix under O2/FORTIFY. Pass actual caller capacity, preserve the native base/custom fields by appending at the end, and reject truncation before sending. Optimized actual formatter regression covers system/non-system branches and both bounds."
+  },
+  {
+    "id": "target-direct-trade-pet-element-display-order",
+    "file": "gmsv/char/trade.c",
+    "before": "                        , oldlv, oldhp, oldstr, oldvgh, olddex, CHAR_getInt(petindex, CHAR_EARTHAT)\n                        , CHAR_getInt(petindex, CHAR_WATERAT), CHAR_getInt(petindex, CHAR_FIREAT), CHAR_getInt(petindex, CHAR_WINDAT)",
+    "after": "                        /* Target TD inspection labels fields 35..38 water/fire/earth/wind. */\n                        , oldlv, oldhp, oldstr, oldvgh, olddex, CHAR_getInt(petindex, CHAR_WATERAT)\n                        , CHAR_getInt(petindex, CHAR_FIREAT), CHAR_getInt(petindex, CHAR_EARTHAT), CHAR_getInt(petindex, CHAR_WINDAT)",
+    "reason": "Actual two-client pet inspection shows native water4/fire6 as fire4/earth6. Hash-verified target parser 7c40e8..7c4162 and renderer 7df31b..7df4b6 label TD fields35..38 water/fire/earth/wind. Reorder only this display payload, preserve native pet integers and all surrounding growth/blessing fields. Actual optimized formatter red/green regression."
+  },
+  {
+    "file": "gmsv/mylua/enemytempbase.c",
+    "before": "    , {{\"形象\"},               E_T_IMGNUMBER}",
+    "after": "    , {{\"形象\"},               E_T_IMGNUMBER}\n    , {{\"宠物标记\"},         E_T_PETFLG}",
+    "reason": "Expose the existing read-only template pet flag to Lua so the growth catalog can include native pets without adding non-pet enemy templates."
+  },
+  {
+    "file": "gmsv/battle/pet_skill.c",
+    "before": "#include \"pet_skill.h\"",
+    "after": "#include \"pet_skill.h\"\n#include \"app_pet_skill_options.h\"",
+    "reason": "Parse bounded optional native pet-skill profile fields while preserving numeric-only legacy options."
+  },
+  {
+    "file": "gmsv/battle/battle_event.c",
+    "before": "#include \"pet_skill.h\"",
+    "after": "#include \"pet_skill.h\"\n#include \"app_pet_skill_options.h\"",
+    "reason": "Parse bounded optional native pet-skill profile fields while preserving numeric-only legacy options."
+  },
+  {
+    "file": "gmsv/battle/pet_skill.c",
+    "before": "    if (CHAR_getInt(charaindex, CHAR_HP) * 2 >= CHAR_getWorkInt(charaindex, CHAR_WORKMAXHP))",
+    "after": "    const char *option = PETSKILL_getChar(array, PETSKILL_OPTION);\n    int threshold = stone_pet_option(option, \" hp=\", 50, 1, 100);\n    if ((long long)CHAR_getInt(charaindex, CHAR_HP) * 100 >=\n        (long long)CHAR_getWorkInt(charaindex, CHAR_WORKMAXHP) * threshold)",
+    "reason": "External received skill 700 triggers below 90% HP. Original numeric-only native skill 623 retains below-50% behavior."
+  },
+  {
+    "file": "gmsv/battle/pet_skill.c",
+    "before": "        CHAR_SETWORKINT_LOW(charaindex, CHAR_WORKBATTLECOM3, array);    //记录技能\n    }\n\n    return TRUE;\n}\n\n//宠技:媚惑术",
+    "after": "        CHAR_SETWORKINT_LOW(charaindex, CHAR_WORKBATTLECOM3, array);    //记录技能\n        int defence = stone_pet_option(option, \" def=\", 0, -100, 500);\n        if (defence) CHAR_setWorkInt(charaindex, CHAR_WORKDEFENCEPOWER,\n            stone_pet_scale(CHAR_getWorkInt(charaindex, CHAR_WORKFIXTOUGH), defence));\n    }\n\n    return TRUE;\n}\n\n//宠技:媚惑术",
+    "reason": "Apply the confirmed -30% defence of the new bath-blood skill profile; preserve legacy defence when unspecified."
+  },
+  {
+    "file": "gmsv/battle/battle_event.c",
+    "before": "        perCri = perCri + (perCri * 0.3); //会心一击上升30%\n        CHAR_setWorkInt(attackindex, CHAR_WORKATTACKPOWER, CHAR_getWorkInt(attackindex, CHAR_WORKFIXSTR) + CHAR_getWorkInt(attackindex, CHAR_WORKFIXSTR) * 0.2); //攻上升20%",
+    "after": "        const char *option = PETSKILL_getChar(CHAR_GETWORKINT_LOW(attackindex, CHAR_WORKBATTLECOM3), PETSKILL_OPTION);\n        perCri = stone_pet_scale(perCri, stone_pet_option(option, \" critical=\", 30, 0, 500));\n        CHAR_setWorkInt(attackindex, CHAR_WORKATTACKPOWER,\n            stone_pet_scale(CHAR_getWorkInt(attackindex, CHAR_WORKFIXSTR),\n                            stone_pet_option(option, \" atk=\", 20, -100, 500)));",
+    "reason": "Compute actual attack and critical damage from the configured native skill profile: new 700 uses +75% attack/+30% critical; legacy 623 stays +20%/+30%."
+  },
+  {
+    "file": "gmsv/battle/pet_skill.c",
+    "before": "    def = (atoi(buf1) / 100);",
+    "after": "    def = atoi(buf1) / 100.0f;",
+    "reason": "Fix actual integer division that discarded non-whole-percent HP/MP attack multipliers; required for external +30% absorption and +10% MP attack profiles."
+  },
+  {
+    "file": "gmsv/battle/pet_skill.c",
+    "before": "    def = (float)(atoi(buf1) / 100);",
+    "after": "    def = atoi(buf1) / 100.0f;",
+    "reason": "Fix actual integer division that discarded non-whole-percent HP/MP attack multipliers; required for external +30% absorption and +10% MP attack profiles."
+  },
+  {
+    "file": "gmsv/battle/pet_skill.c",
+    "before": "int PETSKILL_Gyrate(int charaindex, int toNo, int array, char *data)\n{\n    char *pszOption = \"\\0\", *pszP;\n    float fPer = 0.01;\n    int strdef = 0;\n    CHAR_setWorkInt(charaindex, CHAR_WORKBATTLECOM1, BATTLE_COM_S_GYRATE);\n    CHAR_setWorkInt(charaindex, CHAR_WORKBATTLECOM2, toNo);   //攻击对象  23,24,25,26 为单排\n    CHAR_setWorkInt(charaindex, CHAR_WORKBATTLEMODE, BATTLE_CHARMODE_C_OK);\n    pszOption = PETSKILL_getChar(array, PETSKILL_OPTION);\n\n    if (pszOption == \"\\0\")\n    {\n        print(\"\\n pszOption == NULL \");\n        return FALSE;\n    }\n\n    //读取攻值\n    if ((pszP = strstr(pszOption, \"攻%\")) != NULL)\n    {\n        sscanf(pszP + 4, \"%f\", &fPer);\n        fPer = (fPer / 100);\n        //设定修正值\n        strdef = CHAR_getWorkInt(charaindex, CHAR_WORKFIXSTR);\n        strdef = (int)(strdef * fPer);\n        CHAR_setWorkInt(charaindex, CHAR_WORKATTACKPOWER, (CHAR_getWorkInt(charaindex, CHAR_WORKFIXSTR) + strdef));\n    }\n\n    CHAR_SETWORKINT_LOW(charaindex, CHAR_WORKBATTLECOM3, array);     //记录属性\n    return TRUE;\n}\n",
+    "after": "int PETSKILL_Gyrate(int charaindex, int toNo, int array, char *data)\n{\n    char *pszOption = \"\\0\", *pszP;\n    float fPer = 0.01;\n    int strdef = 0;\n    CHAR_setWorkInt(charaindex, CHAR_WORKBATTLECOM1, BATTLE_COM_S_GYRATE);\n    CHAR_setWorkInt(charaindex, CHAR_WORKBATTLECOM2, toNo);   //攻击对象  23,24,25,26 为单排\n    CHAR_setWorkInt(charaindex, CHAR_WORKBATTLEMODE, BATTLE_CHARMODE_C_OK);\n    pszOption = PETSKILL_getChar(array, PETSKILL_OPTION);\n\n    if (pszOption == \"\\0\")\n    {\n        print(\"\\n pszOption == NULL \");\n        return FALSE;\n    }\n\n    //读取攻值\n    if ((pszP = strstr(pszOption, \"攻%\")) != NULL)\n    {\n        sscanf(pszP + 4, \"%f\", &fPer);\n        fPer = (fPer / 100);\n        //设定修正值\n        strdef = CHAR_getWorkInt(charaindex, CHAR_WORKFIXSTR);\n        strdef = (int)(strdef * fPer);\n        CHAR_setWorkInt(charaindex, CHAR_WORKATTACKPOWER, (CHAR_getWorkInt(charaindex, CHAR_WORKFIXSTR) + strdef));\n    }\n\n    if ((pszP = strstr(pszOption, \"防%\")) != NULL)\n    {\n        sscanf(pszP + 4, \"%f\", &fPer);\n        CHAR_setWorkInt(charaindex, CHAR_WORKDEFENCEPOWER,\n            stone_pet_scale(CHAR_getWorkInt(charaindex, CHAR_WORKFIXTOUGH), (int)fPer));\n    }\n    CHAR_SETWORKINT_LOW(charaindex, CHAR_WORKBATTLECOM3, array);     //记录属性\n    return TRUE;\n}\n",
+    "reason": "Honor the real defence penalty in configured gyrate attacks; old options without defence stay unchanged."
+  },
+  {
+    "file": "gmsv/lssproto_serv.c",
+    "before": "#include \"app_features.h\"",
+    "after": "#include \"app_features.h\"\n#include \"app_pet_skill_wire.h\"",
+    "reason": "Use a bounded native pet-skill wire adapter for the verified target six-field W receiver."
+  },
+  {
+    "file": "gmsv/lssproto_serv.c",
+    "before": "void lssproto_S_send(int fd, char* data)\n{\n    if (stone_app_status(fd, 2026, data)) return;",
+    "after": "void lssproto_S_send(int fd, char* data)\n{\n    char pet_skill_data[8192];\n    int pet_skill_layout = stone_app_pet_skill_wire(data, pet_skill_data, sizeof(pet_skill_data));\n    if (pet_skill_layout < 0) {\n        fprintf(stderr, \"[local] rejected invalid pet-skill status layout\\n\");\n        return;\n    }\n    if (pet_skill_layout > 0) data = pet_skill_data;\n    if (stone_app_status(fd, 2026, data)) return;",
+    "reason": "Real client pet panel displayed the second skill memo as its name and discarded later skills. Target 0x874c7e uses six fields, native W/Y/O uses five. Preserve native producers and skill IDs; append a zero client extension plus four empty passive slots once before primary/controlled status routing. Actual native formatter and sender replay covers both routes and empty slots."
+  },
+  {
+    "file": "gmsv/include/char_base.h",
+    "before": "    CHAR_SHUALOU_DATA,\n    CHAR_DATACHARNUM,",
+    "after": "    CHAR_SHUALOU_DATA,\n    CHAR_APP_EVENT_STATE,\n    CHAR_DATACHARNUM,",
+    "reason": "Append a dedicated persisted activity claim ledger; preserve all existing enum indexes and save keys."
+  },
+  {
+    "file": "gmsv/char/char_base.c",
+    "before": "    \"sldata\",\n};",
+    "after": "    \"sldata\",\n    \"aevstate\",\n};",
+    "reason": "Append a dedicated persisted activity claim ledger; preserve all existing enum indexes and save keys."
+  },
+  {
+    "file": "gmsv/mylua/charbase.c",
+    "before": "    , { {\"刷楼数据\"},       CHAR_SHUALOU_DATA },",
+    "after": "    , { {\"刷楼数据\"},       CHAR_SHUALOU_DATA },\n    { {\"活动领奖\"}, CHAR_APP_EVENT_STATE },",
+    "reason": "Append a dedicated persisted activity claim ledger; preserve all existing enum indexes and save keys."
+  },
+  {
+    "file": "gmsv/longzoro/characters.c",
+    "before": "\"CHAR_SHUALOU_DATA\", };",
+    "after": "\"CHAR_SHUALOU_DATA\", \"CHAR_APP_EVENT_STATE\", };",
+    "reason": "Append a dedicated persisted activity claim ledger; preserve all existing enum indexes and save keys."
+  },
+  {
+    "file": "gmsv/lssproto_serv.c",
+    "before": "    for (i = 0; i < 32; i++)\n    {\n        sprintf(bufftemp, \"%s%d|\", bufftemp, CHAR_getInt(fd_charaindex, CHAR_ENDEVENT + i));\n    }",
+    "after": "    size_t event_used = 0;\n    for (i = 0; i < 32; i++)\n    {\n        int written = snprintf(bufftemp + event_used, sizeof(bufftemp) - event_used,\n                               \"%d|\", CHAR_getInt(fd_charaindex, CHAR_ENDEVENT + i));\n        if (written < 0 || (size_t)written >= sizeof(bufftemp) - event_used) return;\n        event_used += (size_t)written;\n    }",
+    "reason": "Target task receiver 809 expects all 32 event words. Overlapping sprintf under production fortify retained only the final word, hiding saved completed quests. Append with checked offsets; tests/task_progress.py uses the actual sender and production flags."
+  }
+]

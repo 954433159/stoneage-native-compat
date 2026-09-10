@@ -1,0 +1,21 @@
+name: Public source checks
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  source-safety:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Scan exactly the tracked publication files
+        run: python3 tools/scan_public_release.py --git-index
+      - name: Verify publication guards
+        run: python3 tests/test_release_tools.py
+      - name: Check Python syntax
+        run: python3 -m compileall -q account_service.py tools tests
+      # Proprietary original inputs are intentionally absent. This job does
+      # not claim native compilation or real-client gameplay acceptance.

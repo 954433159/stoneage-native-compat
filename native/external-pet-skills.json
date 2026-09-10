@@ -1,0 +1,38 @@
+{
+  "notes": [
+    "Descriptions are collected public evidence. Only the entries below are enabled for native teaching.",
+    "Unknown external skill probabilities and acquisition routes are not claimed as verified.",
+    "Native support spells retain their existing three-use-per-battle rule and status/resistance rules."
+  ],
+  "existing": {
+    "攻击": 1,
+    "防御": 2,
+    "四段攻击": 12,
+    "T五段攻击": 13,
+    "T一击必杀改": 41,
+    "T不防守战法2": 151,
+    "T不防守战法3": 152,
+    "难得糊涂改": 629,
+    "净化之舞": 637
+  },
+  "profiles": [
+    {"id":700,"name":"浴血狂袭","base":623,"option":"50 hp=90 atk=75 def=-30 critical=30"},
+    {"id":701,"name":"T背水之战之其３","base":52,"option":"攻%+80 防%-50"},
+    {"id":702,"name":"T背水之战MAX","base":52,"option":"攻%+100 防%-50"},
+    {"id":703,"name":"T一击必杀MAX","base":41,"option":"倍3 回避0"},
+    {"id":704,"name":"撕裂伤口1","base":615,"option":"10"},
+    {"id":705,"name":"人龙撕裂1","base":615,"option":"5"},
+    {"id":706,"name":"飞暴撕裂1","base":615,"option":"30"},
+    {"id":707,"name":"大地铠甲","base":601,"option":"5|15|TGH"},
+    {"id":708,"name":"龙龟护甲1","base":601,"option":"5|20|TGH"},
+    {"id":709,"name":"火焰威能","base":603,"option":"5|12|STR"},
+    {"id":710,"name":"水灵滋润","base":602,"option":"5|600|HP"},
+    {"id":711,"name":"水灵滋润改1","base":602,"option":"5|700|HP"},
+    {"id":712,"name":"风之吹息","base":604,"option":"5|12|DEX"},
+    {"id":713,"name":"闪避术","base":595,"option":"3|50"},
+    {"id":716,"name":"MP攻击","base":506,"option":"-10|50"},
+    {"id":717,"name":"嗜血攻击1","base":503,"option":"-30|30"},
+    {"id":718,"name":"T回旋攻击1","base":619,"option":"攻%+15 防%-35"},
+    {"id":719,"name":"憾甲一击1","base":640,"option":"攻%+10 防%-10"}
+  ]
+}
