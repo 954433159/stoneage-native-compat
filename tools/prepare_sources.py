@@ -103,7 +103,7 @@ def main() -> None:
             cmake.append(f'  "${{CMAKE_CURRENT_SOURCE_DIR}}/{base}/{name}/{path}"')
         cmake.append(")")
         if name == "gmsv":
-            cmake.append('target_sources(gmsv PRIVATE "wire_charset.c" "app_role.c" "app_control.c" "app_mail.c" "app_storage.c" "app_attributes.c" "app_market.c" "app_features.c")')
+            cmake.append('target_sources(gmsv PRIVATE "wire_charset.c" "bind_address.c" "app_role.c" "app_control.c" "app_mail.c" "app_storage.c" "app_attributes.c" "app_market.c" "app_features.c")')
         cmake.append(f'target_include_directories({name} PRIVATE "." "include" "overrides/{name}" "overrides/{name}/include" "overrides/{name}/lua")')
         cmake.append(f"target_compile_definitions({name} PRIVATE _GNU_SOURCE LUA_COMPAT_MODULE)")
         cmake.append(f"target_compile_options({name} PRIVATE -fcommon -Wno-implicit-function-declaration -Wno-int-conversion -Wno-incompatible-pointer-types)")

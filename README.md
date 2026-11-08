@@ -65,7 +65,7 @@ Windows 双击 `start-local.cmd`，或 PowerShell 执行：
 
 Linux服务端可以依次运行 `.venv/bin/python tools/runtime.py database`、`native`、`http`、`ready`，停止用 `.venv/bin/python tools/runtime.py stop`；原游戏客户端仍需Windows。已以Ubuntu普通用户验证本项目独立MariaDB目录的初始化和启动。
 
-配置由准备脚本生成。若手动修改 `.cf` 文件，请保留UTF-8及LF换行；原生配置解析器会将CRLF中的回车读入地址等字段。客户端HTTP地址当前固定为 `127.0.0.1:19090`，改HTTP端口还需要同步生成并核验客户端补丁，不能只改服务端配置。
+配置由准备脚本生成。若手动修改 `.cf` 文件，请保留UTF-8及LF换行；原生配置解析器会将CRLF中的回车读入地址等字段。20260805 客户端的服务器列表、版本检查和资源清单是不同 URL，资源前缀还可能在另一个主机。准备客户端时这些通道要一起改写；只替换 `202.189.23.53:90` 会留下其余更新地址。游戏 TCP 端口来自服务器列表，默认 29065，不是 URL 中的 90。同一台 Windows 机器仍使用 `http://127.0.0.1:19090`。安卓设备需要能访问到的 `STONEAGE_HTTP_HOST`、`STONEAGE_GAME_HOST` 和 `STONEAGE_BIND_ADDR`，并且新 URL 必须放进原来的字符串槽。实测范围、端点分离和还缺的文件见 `docs/DEPLOYMENT.md`。
 
 ## 检查与备份
 
@@ -90,7 +90,7 @@ sudo .venv/bin/python tools/run_feature_database_checks.py storage
 
 开发实例已验证五控切换、物品/宠物仓库、原生商城和交易等多项流程。最近增加：三种骑乘预览匹配、红狗实际骑乘及重登、贝壳和成人任务完整流程及冷重登。自动回归、独立数据库测试、原客户端实机操作分别记录，不能相互替代。
 
-四种骑乘仍缺目标资源，2D骑宠本地资格未接入；部分活动奖励、外服副本和高级任务未完整实现。任务目录包含2.5内容，不代表整版任务已全部通关。公开构建的验证结果见 `docs/RELEASE_VALIDATION.md`。
+四种骑乘仍缺目标资源，2D骑宠本地资格未接入；部分活动奖励、外服副本和高级任务未完整实现。任务目录包含2.5内容，不代表整版任务已全部通关。公开构建的验证结果见 `docs/RELEASE_VALIDATION.md`。当前验收边界见 `docs/ACCEPTANCE.md`。源码机上的只读校验和筛选打包见 `docs/SOURCE_PACKAGE.md`；该工具不会把资源归档、SQL 转储或私有源码写进本仓库。
 
 ## 修改方式
 

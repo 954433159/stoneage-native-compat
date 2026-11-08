@@ -14,8 +14,8 @@
   {
     "file": "gmsv/util.c",
     "before": "    sin.sin_addr.s_addr = INADDR_ANY;",
-    "after": "    sin.sin_addr.s_addr = htonl(INADDR_LOOPBACK);",
-    "reason": "This instance is for the user's client on this computer."
+    "after": "    extern unsigned int stone_bind_address(void);\n    sin.sin_addr.s_addr = stone_bind_address();",
+    "reason": "Listen for the game client on STONEAGE_BIND_ADDR when it is one IPv4 unicast address. Unset, any-interface, broadcast and multicast values stay on loopback, so a phone is not reachable until the operator chooses the host address. SAAC remains on loopback."
   },
   {
     "file": "saac/main.c",

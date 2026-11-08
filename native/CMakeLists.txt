@@ -206,7 +206,7 @@ add_executable(gmsv
   "${CMAKE_CURRENT_SOURCE_DIR}/overrides/gmsv/shop.c"
   "${CMAKE_CURRENT_SOURCE_DIR}/overrides/gmsv/util.c"
 )
-target_sources(gmsv PRIVATE "wire_charset.c" "app_role.c" "app_control.c" "app_mail.c" "app_storage.c" "app_attributes.c" "app_market.c" "app_features.c")
+target_sources(gmsv PRIVATE "wire_charset.c" "bind_address.c" "app_role.c" "app_control.c" "app_mail.c" "app_storage.c" "app_attributes.c" "app_market.c" "app_features.c")
 target_include_directories(gmsv PRIVATE "." "include" "overrides/gmsv" "overrides/gmsv/include" "overrides/gmsv/lua")
 target_compile_definitions(gmsv PRIVATE _GNU_SOURCE LUA_COMPAT_MODULE)
 target_compile_options(gmsv PRIVATE -fcommon -Wno-implicit-function-declaration -Wno-int-conversion -Wno-incompatible-pointer-types)

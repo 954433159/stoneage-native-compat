@@ -12,12 +12,17 @@ import json
 from pathlib import Path
 import re
 import secrets
+import sys
 from urllib.parse import parse_qs, urlsplit
 
 import pymysql
 import pymysql.cursors
 
 PROJECT = Path(__file__).resolve().parent
+_TOOLS = PROJECT / "tools"
+if str(_TOOLS) not in sys.path:
+    sys.path.insert(0, str(_TOOLS))
+from endpoint_policy import health, http_bind_host, server_list, update_document
 
 
 class LoginError(ValueError):
@@ -165,22 +170,24 @@ def handler_for(store: AccountStore):
 
         def do_GET(self):
             path = urlsplit(self.path).path
-            if path == "/25server/serverlist.php":
-                self.reply([{"name": "我的石器", "list": [{"name": "本机一线", "ip": "127.0.0.1", "port": store.settings["game_port"], "type": 1}]}])
-            elif path in {"/25server/update/listnew.php", "/25server/update/list.php"}:
-                self.reply([])
-            elif path == "/health":
-                self.reply({"account_service": "ready", "game_port": store.settings["game_port"]})
-            elif path == "/25server/announce.php":
-                body = "本机石器服务器".encode()
-                self.send_response(200)
-                self.send_header("Content-Type", "text/plain; charset=utf-8")
-                self.send_header("Content-Length", str(len(body)))
-                self.end_headers()
-                self.wfile.write(body)
-            else:
-                self.reply({"status": 404, "message": "尚未实现的接口"}, 404)
-
+            try:
+                if path == "/25server/serverlist.php":
+                    self.reply(server_list(store.settings))
+                elif path in {"/25server/update/listnew.php", "/25server/update/list.php"}:
+                    self.reply(update_document(store.settings))
+                elif path == "/health":
+                    self.reply(health(store.settings))
+                elif path == "/25server/announce.php":
+                    body = "本机石器服务器".encode()
+                    self.send_response(200)
+                    self.send_header("Content-Type", "text/plain; charset=utf-8")
+                    self.send_header("Content-Length", str(len(body)))
+                    self.end_headers()
+                    self.wfile.write(body)
+                else:
+                    self.reply({"status": 404, "message": "尚未实现的接口"}, 404)
+            except ValueError:
+                self.reply({"status": 503, "message": "端点配置拒绝外部地址或端口冲突"}, 503)
         def do_POST(self):
             path = urlsplit(self.path).path
             # The SDL client's login.cpp uses these names for the same PHP contract.
@@ -231,4 +238,4 @@ def handler_for(store: AccountStore):
 
 if __name__ == "__main__":
     settings = json.loads((PROJECT / "runtime/settings.json").read_text())
-    ThreadingHTTPServer(("127.0.0.1", settings["http_port"]), handler_for(AccountStore(settings))).serve_forever()
+    ThreadingHTTPServer((http_bind_host(settings), int(settings["http_port"])), handler_for(AccountStore(settings))).serve_forever()

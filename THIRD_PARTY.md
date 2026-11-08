@@ -10,4 +10,6 @@
 
 只有项目独立贡献适用根目录许可；第三方代码及素材的许可不能由本项目代为授予。如后续发布整套资源包，必须在发布清单中逐项注明来源、授权与脱敏范围。
 
+公开检索到的这些仓库没有可接受的 SPDX 许可证，或许可证为 `NOASSERTION`，因此没有把它们的源码复制进本仓库：<https://github.com/librae8226/gmsv>、<https://github.com/chenmingbiao/stone-age>、<https://github.com/gavinlinasd/StoneAge>、<https://github.com/alrightlook/StoneAgeMobileApp>、<https://github.com/freeznet/GMSVrelease>、<https://github.com/anson1788/stoneage>。用户本机上的目录名称也不构成再分发授权；那些源码、APK 和素材没有进入本仓库。
+
 GitHub官方说明：[仓库许可](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/licensing-a-repository)、[大文件与Release附件](https://docs.github.com/en/repositories/working-with-files/managing-large-files/about-large-files-on-github)。
