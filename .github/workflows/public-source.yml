@@ -16,7 +16,7 @@ jobs:
       - name: Verify publication guards
         run: python3 tests/test_release_tools.py
       - name: Check endpoint and protocol contracts
-        run: python3 -m unittest tests.test_client_endpoints tests.test_endpoint_policy tests.test_protocol_contract tests.test_bind_address
+        run: python3 -m unittest tests.test_client_endpoints tests.test_endpoint_policy tests.test_protocol_contract tests.test_bind_address tests.test_package_locked_sources
       - name: Check HTTP list, update and login routing
         run: |
           python3 -m venv /tmp/http-check

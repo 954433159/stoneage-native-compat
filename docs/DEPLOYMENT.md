@@ -2,6 +2,8 @@
 
 本文记录这次在公开源码上实际构建和测试的结果。没有访问分析文本里的第三方服务器，没有安装或运行 APK，也没有把 APK、证书、本地源码或游戏素材放进仓库。
 
+源码机回报的 5 个标记哈希已与 `release-input-lock.json` 一致，包括两个工程文件、`175sa.sql`、`projects.zip` 和 `VMProtectSDK.h`。`stoneage.exe` 与 `stoneage.exe.bak` 是锁定原版；两个 local EXE 不是。这 5 项不能代替其余 559 个参考文件。只读校验工具和排除规则见 `docs/SOURCE_PACKAGE.md`。云端没有执行 `--source-root`，因为访问不到该磁盘。逐项玩法状态见 `docs/ACCEPTANCE.md`。
+
 ## 客户端身份
 
 授权的静态分析文本说明，已上传的 APK 是 `com.cwjhs.stoneage.ko`，显示名「重返華義石器」，`versionName=20260805`，`versionCode=1`。ABI 为 `armeabi-v7a` 和 `arm64-v8a`，主库是 `libStoneage.so`，并加载 SDL2。它是安卓原生客户端，不是 Win11 可执行文件，不是网页，也不是远程桌面。
